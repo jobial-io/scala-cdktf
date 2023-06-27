@@ -253,6 +253,9 @@ trait TerraformStackBuilder {
   def policy(statement: Json): Json =
     policy(List(statement))
 
+  def statement(actions: String*): Json =
+    statement(actions.toList, List("*"))
+
   def statement(action: List[String], resource: List[String], effect: String = "Allow", principal: Option[Json] = None, sid: Option[String] = None) =
     obj(
       (List(
