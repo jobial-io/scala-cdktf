@@ -315,8 +315,20 @@ trait TerraformStackBuilder {
 
   implicit val containerDependencyConditionEncoder = deriveEnumerationEncoder[ContainerDependencyCondition]
 
-  def logConfiguration(awslogsGroup: String, awslogsRegion: String, awslogsStreamPrefix: String) =
-    LogConfiguration(LogOptions(Some(awslogsGroup), Some(awslogsRegion), Some(awslogsStreamPrefix)))
+  def logConfiguration(
+    awslogsGroup: String,
+    awslogsRegion: String,
+    awslogsStreamPrefix: String,
+    awslogsCreateGroup: Boolean = false
+  ) =
+    LogConfiguration(
+      LogOptions(
+        Some(awslogsGroup),
+        Some(awslogsRegion),
+        Some(awslogsStreamPrefix),
+        if (awslogsCreateGroup) Some("true") else None
+      )
+    )
 }
 
 sealed trait ContainerDependencyCondition
@@ -367,6 +379,6 @@ case class LogConfiguration(
 case class LogOptions(
   `awslogs-group`: Option[String] = None,
   `awslogs-region`: Option[String] = None,
-  `awslogs-stream-prefix`: Option[String] = None
-  //`awslogs-create-group`: Option[String] = None
+  `awslogs-stream-prefix`: Option[String] = None,
+  `awslogs-create-group`: Option[String] = None
 )
