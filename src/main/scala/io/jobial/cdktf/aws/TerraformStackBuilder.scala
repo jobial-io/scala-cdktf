@@ -16,7 +16,21 @@ import com.hashicorp.cdktf.providers.aws.iam_policy.IamPolicy
 import com.hashicorp.cdktf.providers.aws.iam_role.IamRole
 import com.hashicorp.cdktf.providers.aws.iam_role.IamRoleInlinePolicy
 import com.hashicorp.cdktf.providers.aws.instance.Instance
+import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplate
+import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateInstanceRequirements
+import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateNetworkInterfaces
+import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateTagSpecifications
 import com.hashicorp.cdktf.providers.aws.provider.AwsProvider
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequest
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaunchSpecification
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaunchTemplateConfig
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaunchTemplateConfigLaunchTemplateSpecification
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaunchTemplateConfigOverrides
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestSpotMaintenanceStrategies
+import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance
 import io.circe.Json
 import io.circe.Json.arr
 import io.circe.Json.obj
@@ -25,10 +39,18 @@ import io.circe.generic.auto._
 import io.circe.generic.extras.semiauto.deriveEnumerationEncoder
 import software.amazon.jsii.Builder
 
+import java.time.LocalDate
+import java.time.LocalDateTime
 import scala.collection.JavaConverters._
 import scala.collection.immutable.List
 
-case class TerraformStackBuildContext[D](stack: TerraformStack, app: App, data: D, containerDefinitions: Map[String, ContainerDefinition] = Map()) {
+case class TerraformStackBuildContext[D](
+  stack: TerraformStack,
+  app: App,
+  data: D,
+  containerDefinitions: Map[String, ContainerDefinition] = Map(),
+  tags: Map[String, String] = Map()
+) {
 
   def synth = IO(app.synth())
 
@@ -118,7 +140,7 @@ trait TerraformStackBuilder {
       .volume(volume.asJava)
       .cpu(cpu.toString)
       .memory(memory.toString)
-      .tags(tags.asJava)
+      .tags((context.tags ++ tags).asJava)
   }
 
   def addService[D](
@@ -138,7 +160,7 @@ trait TerraformStackBuilder {
       .desiredCount(1)
       .networkConfiguration(networkConfiguration)
       .forceNewDeployment(forceNewDeployment)
-      .tags(tags.asJava)
+      .tags((context.tags ++ tags).asJava)
   }
 
   def addNetworkConfiguration[D](
@@ -164,7 +186,7 @@ trait TerraformStackBuilder {
       .instanceType(instanceType)
       .securityGroups(securityGroups.asJava)
       .subnetId(subnetId)
-      .tags(tags.asJava)
+      .tags((context.tags ++ tags).asJava)
   }
 
   def addS3Backend[D](bucket: String, key: String) = addResource[D, S3Backend] { context =>
@@ -206,6 +228,136 @@ trait TerraformStackBuilder {
     assumeRolePolicy = Some(assumeRolePolicy),
     managedPolicyArns = managedPolicyArns
   )
+
+  def addSpotFleetRequest[D](
+    name: String,
+    iamFleetRole: String,
+    spotPrice: Double,
+    targetCapacity: Int,
+    onDemandCapacity: Int = 0,
+    terminateInstancesWithExpiration: Boolean = true,
+    terminateInstancesOnDelete: Boolean = true,
+    validUntil: Option[LocalDateTime] = None,
+    fleetType: String = "maintain",
+    allocationStrategy: String = "lowestPrice",
+    instanceInterruptionBehaviour: String = "stop",
+    replaceUnhealthyInstances: Boolean = true,
+    launchTemplateConfigs: List[SpotFleetRequestLaunchTemplateConfig] = List(),
+    launchSpecifications: List[SpotFleetRequestLaunchSpecification] = List(),
+    tags: Map[String, String] = Map()
+  ): TerraformStackBuildState[D, SpotFleetRequest] = addResource[D, SpotFleetRequest] { context =>
+    SpotFleetRequest.Builder
+      .create(context.stack, name)
+      .iamFleetRole(iamFleetRole)
+      .fleetType(fleetType)
+      .allocationStrategy(allocationStrategy)
+      .spotMaintenanceStrategies(SpotFleetRequestSpotMaintenanceStrategies.builder
+        .capacityRebalance(
+          SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance.builder.replacementStrategy("launch").build
+        ).build
+      )
+      .spotPrice(spotPrice.toString)
+      .validUntil(validUntil.toString)
+      .launchSpecification(launchSpecifications.asJava)
+      .launchTemplateConfig(launchTemplateConfigs.asJava)
+      .targetCapacity(targetCapacity)
+      .onDemandTargetCapacity(onDemandCapacity)
+      .terminateInstancesWithExpiration(terminateInstancesWithExpiration)
+      .terminateInstancesOnDelete(terminateInstancesOnDelete.toString)
+      .instanceInterruptionBehaviour(instanceInterruptionBehaviour)
+      //.excessCapacityTerminationPolicy()
+      .replaceUnhealthyInstances(replaceUnhealthyInstances)
+      .tags(((context.tags ++ tags) + ("cdktf:name" -> name)).asJava)
+  }
+  
+  def addLaunchTemplate[D](
+    name: String,
+    imageId: String,
+    instanceType: String,
+    subnetId: String,
+    securityGroups: List[String],
+    keyName: String,
+    instanceRequirements: Option[LaunchTemplateInstanceRequirements] = None,
+    tags: Map[String, String] = Map()
+  ) = addResource[D, LaunchTemplate] { context =>
+    val b = LaunchTemplate.Builder
+      .create(context.stack, name)
+      .imageId(imageId)
+      .networkInterfaces(List(
+        LaunchTemplateNetworkInterfaces.builder
+          .securityGroups(securityGroups.asJava)
+          .subnetId(subnetId)
+          .build
+      ).asJava)
+      .instanceType(instanceType)
+      .keyName(keyName)
+      .tags(tags.asJava)
+      .tagSpecifications(List(
+        LaunchTemplateTagSpecifications.builder.resourceType("instance").tags(tags.asJava).build
+      ).asJava)
+    instanceRequirements.map(b.instanceRequirements)
+    b
+  }
+
+  def spotFleetRequestLaunchSpecification(
+    ami: String,
+    instanceType: String,
+    spotPrice: Double,
+    securityGroups: List[String],
+    keyName: String,
+    subnetId: String,
+    availabilityZone: String,
+    monitoring: Boolean = false,
+    tags: Map[String, String] = Map()
+  ) =
+    SpotFleetRequestLaunchSpecification.builder()
+      .ami(ami)
+      .keyName(keyName)
+      .spotPrice(spotPrice.toString)
+      .subnetId(subnetId)
+      .availabilityZone(availabilityZone)
+      .instanceType(instanceType)
+      .vpcSecurityGroupIds(securityGroups.asJava)
+      .subnetId(subnetId)
+      .monitoring(monitoring)
+      .tags(tags.asJava)
+      .build
+
+  def spotFleetRequestLaunchTemplateConfig(
+    launchTemplate: LaunchTemplate,
+    version: String = "$Latest",
+    overrides: Option[List[SpotFleetRequestLaunchTemplateConfigOverrides]] = None
+  ) = {
+    val b = SpotFleetRequestLaunchTemplateConfig.builder()
+      .launchTemplateSpecification(SpotFleetRequestLaunchTemplateConfigLaunchTemplateSpecification
+        .builder
+        .name(launchTemplate.getName)
+        .version(version)
+        .build
+      )
+    overrides.map(o => b.overrides(o.asJava))
+    b.build
+  }
+
+  def spotFleetRequestLaunchTemplateConfigOverrides =
+    SpotFleetRequestLaunchTemplateConfigOverrides.builder
+      .instanceRequirements(
+        SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements.builder
+          .vcpuCount(
+            SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount.builder
+              .min(1)
+              .max(64)
+              .build
+          )
+          .memoryMib(
+            SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib.builder
+              .min(1)
+              .max(100000)
+              .build
+          )
+          .build
+      ).build
+
 
   def addRole[D](
     name: String,
