@@ -126,6 +126,7 @@ trait TerraformStackBuilder {
     cluster: EcsCluster,
     taskDefinition: EcsTaskDefinition,
     networkConfiguration: EcsServiceNetworkConfiguration,
+    forceNewDeployment: Boolean = false,
     tags: Map[String, String] = Map()
   ) = addResource[D, EcsService] { context =>
     EcsService.Builder
@@ -136,6 +137,7 @@ trait TerraformStackBuilder {
       .cluster(cluster.getId)
       .desiredCount(1)
       .networkConfiguration(networkConfiguration)
+      .forceNewDeployment(forceNewDeployment)
       .tags(tags.asJava)
   }
 
