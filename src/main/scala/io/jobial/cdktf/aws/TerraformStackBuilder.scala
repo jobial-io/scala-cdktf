@@ -246,7 +246,7 @@ trait TerraformStackBuilder {
     launchSpecifications: List[SpotFleetRequestLaunchSpecification] = List(),
     tags: Map[String, String] = Map()
   ): TerraformStackBuildState[D, SpotFleetRequest] = addResource[D, SpotFleetRequest] { context =>
-    SpotFleetRequest.Builder
+    val b = SpotFleetRequest.Builder
       .create(context.stack, name)
       .iamFleetRole(iamFleetRole)
       .fleetType(fleetType)
@@ -257,7 +257,6 @@ trait TerraformStackBuilder {
         ).build
       )
       .spotPrice(spotPrice.toString)
-      .validUntil(validUntil.toString)
       .launchSpecification(launchSpecifications.asJava)
       .launchTemplateConfig(launchTemplateConfigs.asJava)
       .targetCapacity(targetCapacity)
@@ -268,6 +267,8 @@ trait TerraformStackBuilder {
       //.excessCapacityTerminationPolicy()
       .replaceUnhealthyInstances(replaceUnhealthyInstances)
       .tags(((context.tags ++ tags) + ("cdktf:name" -> name)).asJava)
+    validUntil.map(d => b.validUntil(d.toString))
+    b
   }
 
   def addSpotFleetRequest[D](
