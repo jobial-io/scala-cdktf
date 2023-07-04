@@ -269,7 +269,56 @@ trait TerraformStackBuilder {
       .replaceUnhealthyInstances(replaceUnhealthyInstances)
       .tags(((context.tags ++ tags) + ("cdktf:name" -> name)).asJava)
   }
-  
+
+  def addSpotFleetRequest[D](
+    name: String,
+    iamFleetRole: String,
+    spotPrice: Double,
+    targetCapacity: Int,
+    imageId: String,
+    instanceTypes: List[String],
+    subnetId: String,
+    securityGroups: List[String],
+    keyName: String,
+    tags: Map[String, String]
+  ): TerraformStackBuildState[D, SpotFleetRequest] = for {
+    launchTemplates <- sequence(instanceTypes.map { t =>
+      addLaunchTemplate[D](
+        s"$name-launch-template-$t",
+        imageId,
+        t,
+        subnetId,
+        securityGroups,
+        keyName,
+        tags = tags
+      )
+    })
+    launchTemplateConfigs = launchTemplates.map { t =>
+      spotFleetRequestLaunchTemplateConfig(
+        t
+      )
+    }
+    spotFleetRequest <- addSpotFleetRequest(
+      name,
+      iamFleetRole,
+      spotPrice,
+      targetCapacity,
+      launchTemplateConfigs = launchTemplateConfigs,
+      tags = tags
+    )
+  } yield spotFleetRequest
+
+  def sequence[S, T](l: List[State[S, T]]): State[S, List[T]] =
+    l.headOption match {
+      case Some(h) =>
+        for {
+          h <- h
+          t <- sequence(l.tail)
+        } yield h :: t
+      case None =>
+        State.inspect[S, List[T]](_ => List())
+    }
+
   def addLaunchTemplate[D](
     name: String,
     imageId: String,
@@ -486,6 +535,14 @@ trait TerraformStackBuilder {
         if (awslogsCreateGroup) Some("true") else None
       )
     )
+//
+//  def addMyResource[D](
+//    name: String
+//  ): TerraformStackBuildState[D, MyResource] =
+//    State.inspect { context =>
+//      new MyResource(context.stack)
+//    }
+  
 }
 
 sealed trait ContainerDependencyCondition
