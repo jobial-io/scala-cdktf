@@ -5,6 +5,7 @@ import cats.effect.IO
 import io.jobial.cdktf.util.json._
 import com.hashicorp.cdktf.App
 import com.hashicorp.cdktf.S3Backend
+import com.hashicorp.cdktf.TerraformResource
 import com.hashicorp.cdktf.TerraformStack
 import com.hashicorp.cdktf.providers.aws.cloudwatch_log_group.CloudwatchLogGroup
 import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsCluster
@@ -12,11 +13,13 @@ import com.hashicorp.cdktf.providers.aws.ecs_service.EcsService
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsServiceNetworkConfiguration
 import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinition
 import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinitionVolume
+import com.hashicorp.cdktf.providers.aws.iam_instance_profile.IamInstanceProfile
 import com.hashicorp.cdktf.providers.aws.iam_policy.IamPolicy
 import com.hashicorp.cdktf.providers.aws.iam_role.IamRole
 import com.hashicorp.cdktf.providers.aws.iam_role.IamRoleInlinePolicy
 import com.hashicorp.cdktf.providers.aws.instance.Instance
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplate
+import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateIamInstanceProfile
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateInstanceRequirements
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateNetworkInterfaces
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateTagSpecifications
@@ -37,7 +40,9 @@ import io.circe.Json.obj
 import io.circe.syntax._
 import io.circe.generic.auto._
 import io.circe.generic.extras.semiauto.deriveEnumerationEncoder
+import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfNameTag
 import software.amazon.jsii.Builder
+import software.constructs.Construct
 
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -68,14 +73,19 @@ case class TerraformStackBuildContext[D](
     else
       containerDefinitionsWithTransitiveDependencies(closure)
   }
+
+  def mergeTags(resourceName: String, tags: Map[String, String]) =
+    this.tags ++ tags + (CdktfNameTag -> resourceName)
 }
 
 object TerraformStackBuildContext {
 
-  def apply[D](name: String, data: D) = {
+  def apply[D](name: String, data: D, tags: Map[String, String]) = {
     val app = new App
-    new TerraformStackBuildContext(new TerraformStack(app, name), app, data)
+    new TerraformStackBuildContext(new TerraformStack(app, name), app, data, tags = tags)
   }
+
+  val CdktfNameTag = "cdktf:name"
 }
 
 trait TerraformStackBuilder {
@@ -85,8 +95,8 @@ trait TerraformStackBuilder {
   def createStack(name: String)(state: TerraformStackBuildState[Unit, Unit]) =
     createStack[Unit](name, ())(state)
 
-  def createStack[D](name: String, data: D)(state: TerraformStackBuildState[D, Unit]) =
-    state.run(TerraformStackBuildContext(name, data)).value._1.synth
+  def createStack[D](name: String, data: D, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
+    state.run(TerraformStackBuildContext(name, data, tags)).value._1.synth
 
   def addResource[D, T](builder: TerraformStackBuildContext[D] => Builder[T]): TerraformStackBuildState[D, T] =
     State.inspect { context =>
@@ -266,7 +276,7 @@ trait TerraformStackBuilder {
       .instanceInterruptionBehaviour(instanceInterruptionBehaviour)
       //.excessCapacityTerminationPolicy()
       .replaceUnhealthyInstances(replaceUnhealthyInstances)
-      .tags(((context.tags ++ tags) + ("cdktf:name" -> name)).asJava)
+      .tags(context.mergeTags(name, tags).asJava)
     validUntil.map(d => b.validUntil(d.toString))
     b
   }
@@ -327,6 +337,7 @@ trait TerraformStackBuilder {
     subnetId: String,
     securityGroups: List[String],
     keyName: String,
+    instanceProfile: Option[IamInstanceProfile] = None,
     instanceRequirements: Option[LaunchTemplateInstanceRequirements] = None,
     tags: Map[String, String] = Map()
   ) = addResource[D, LaunchTemplate] { context =>
@@ -341,12 +352,26 @@ trait TerraformStackBuilder {
       ).asJava)
       .instanceType(instanceType)
       .keyName(keyName)
-      .tags(tags.asJava)
+      .tags(context.mergeTags(name, tags).asJava)
       .tagSpecifications(List(
-        LaunchTemplateTagSpecifications.builder.resourceType("instance").tags(tags.asJava).build
+        LaunchTemplateTagSpecifications.builder.resourceType("instance").tags(context.mergeTags(name, tags).asJava).build
       ).asJava)
     instanceRequirements.map(b.instanceRequirements)
+    instanceProfile.map(p => b.iamInstanceProfile(LaunchTemplateIamInstanceProfile.builder
+      .name(s"$name-launch-template-instance-profile")
+      .arn(p.getArn)
+      .build)
+    )
     b
+  }
+
+  def addIamInstanceProfile[D](
+    name: String,
+    role: IamRole
+  ) = addResource[D, IamInstanceProfile] { context =>
+    IamInstanceProfile.Builder
+      .create(context.stack, name)
+      .role(role.getName)
   }
 
   def spotFleetRequestLaunchSpecification(
@@ -536,14 +561,14 @@ trait TerraformStackBuilder {
         if (awslogsCreateGroup) Some("true") else None
       )
     )
-//
-//  def addMyResource[D](
-//    name: String
-//  ): TerraformStackBuildState[D, MyResource] =
-//    State.inspect { context =>
-//      new MyResource(context.stack)
-//    }
-  
+  //
+  //  def addMyResource[D](
+  //    name: String
+  //  ): TerraformStackBuildState[D, MyResource] =
+  //    State.inspect { context =>
+  //      new MyResource(context.stack)
+  //    }
+
 }
 
 sealed trait ContainerDependencyCondition
@@ -597,3 +622,7 @@ case class LogOptions(
   `awslogs-stream-prefix`: Option[String] = None,
   `awslogs-create-group`: Option[String] = None
 )
+
+//class MyResource(scope: Construct) extends TerraformResource(software.amazon.jsii.JsiiObject.InitializationMode.JSII) {
+//  software.amazon.jsii.JsiiEngine.getInstance.createNewObject(this, Array[AnyRef](java.util.Objects.requireNonNull(scope, "scope is required"), java.util.Objects.requireNonNull("hello", "id is required"), java.util.Objects.requireNonNull("", "config is required")))
+//}
