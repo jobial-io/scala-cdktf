@@ -2,10 +2,8 @@ package io.jobial.cdktf.aws
 
 import cats.data.State
 import cats.effect.IO
-import io.jobial.cdktf.util.json._
 import com.hashicorp.cdktf.App
 import com.hashicorp.cdktf.S3Backend
-import com.hashicorp.cdktf.TerraformResource
 import com.hashicorp.cdktf.TerraformStack
 import com.hashicorp.cdktf.providers.aws.cloudwatch_log_group.CloudwatchLogGroup
 import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsCluster
@@ -35,19 +33,18 @@ import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaun
 import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestSpotMaintenanceStrategies
 import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance
 import io.circe.Json
-import io.circe.Json.arr
 import io.circe.Json.obj
-import io.circe.syntax._
 import io.circe.generic.auto._
 import io.circe.generic.extras.semiauto.deriveEnumerationEncoder
+import io.circe.syntax._
 import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfNameTag
+import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfTimestampTag
+import io.jobial.cdktf.util.json._
 import software.amazon.jsii.Builder
-import software.constructs.Construct
 
-import java.time.LocalDate
+import java.time.Instant.now
 import java.time.LocalDateTime
 import scala.collection.JavaConverters._
-import scala.collection.immutable.List
 
 case class TerraformStackBuildContext[D](
   stack: TerraformStack,
@@ -75,7 +72,9 @@ case class TerraformStackBuildContext[D](
   }
 
   def mergeTags(resourceName: String, tags: Map[String, String]) =
-    this.tags ++ tags + (CdktfNameTag -> resourceName)
+    this.tags ++ tags + 
+      (CdktfNameTag -> resourceName) +
+      (CdktfTimestampTag -> now.toString)
 }
 
 object TerraformStackBuildContext {
@@ -86,6 +85,7 @@ object TerraformStackBuildContext {
   }
 
   val CdktfNameTag = "cdktf:name"
+  val CdktfTimestampTag = "cdktf:timestamp"
 }
 
 trait TerraformStackBuilder {
