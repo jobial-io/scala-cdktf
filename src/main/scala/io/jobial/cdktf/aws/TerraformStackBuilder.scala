@@ -339,6 +339,7 @@ trait TerraformStackBuilder {
     keyName: String,
     instanceProfile: Option[IamInstanceProfile] = None,
     instanceRequirements: Option[LaunchTemplateInstanceRequirements] = None,
+    userData: Option[String] = None,
     tags: Map[String, String] = Map()
   ) = addResource[D, LaunchTemplate] { context =>
     val b = LaunchTemplate.Builder
@@ -356,12 +357,14 @@ trait TerraformStackBuilder {
       .tagSpecifications(List(
         LaunchTemplateTagSpecifications.builder.resourceType("instance").tags(context.mergeTags(name, tags).asJava).build
       ).asJava)
+    
     instanceRequirements.map(b.instanceRequirements)
     instanceProfile.map(p => b.iamInstanceProfile(LaunchTemplateIamInstanceProfile.builder
       .name(s"$name-launch-template-instance-profile")
       .arn(p.getArn)
       .build)
     )
+    userData.map(b.userData)
     b
   }
 
