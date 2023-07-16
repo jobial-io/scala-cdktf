@@ -73,10 +73,21 @@ case class TerraformStackBuildContext[D](
       containerDefinitionsWithTransitiveDependencies(closure)
   }
 
-  def mergeTags(resourceName: String, tags: Map[String, String]) =
-    this.tags ++ tags +
-      (CdktfNameTag -> resourceName) +
+  def mergeTags(resourceName: Option[String], tags: Map[String, String]) =
+    this.tags ++ tags ++
+      (resourceName match {
+        case Some(resourceName) =>
+          Map(CdktfNameTag -> resourceName)
+        case None =>
+          Map()
+      }) +
       (CdktfTimestampTag -> now.toString)
+
+  def mergeTags(resourceName: String, tags: Map[String, String]): Map[String, String] =
+    mergeTags(Some(resourceName), tags)
+
+  def mergeTags(tags: Map[String, String]): Map[String, String] =
+    mergeTags(None, tags)
 }
 
 object TerraformStackBuildContext {
@@ -115,7 +126,7 @@ trait TerraformStackBuilder {
       .name(name)
       .capacityProviders(capacityProviders.asJava)
       //.setting()
-      .tags(tags.asJava)
+      .tags(context.mergeTags(name, tags).asJava)
   }
 
   def addContainerDefinition[D](
@@ -390,7 +401,7 @@ trait TerraformStackBuilder {
       .role(role.getName)
   }
 
-  def spotFleetRequestLaunchSpecification(
+  def spotFleetRequestLaunchSpecification[D](
     ami: String,
     instanceType: String,
     spotPrice: Double,
@@ -400,19 +411,22 @@ trait TerraformStackBuilder {
     availabilityZone: String,
     monitoring: Boolean = false,
     tags: Map[String, String] = Map()
-  ) =
-    SpotFleetRequestLaunchSpecification.builder()
-      .ami(ami)
-      .keyName(keyName)
-      .spotPrice(spotPrice.toString)
-      .subnetId(subnetId)
-      .availabilityZone(availabilityZone)
-      .instanceType(instanceType)
-      .vpcSecurityGroupIds(securityGroups.asJava)
-      .subnetId(subnetId)
-      .monitoring(monitoring)
-      .tags(tags.asJava)
-      .build
+  ): TerraformStackBuildState[D, SpotFleetRequestLaunchSpecification] =
+    for {
+      context <- getContext
+    } yield
+      SpotFleetRequestLaunchSpecification.builder
+        .ami(ami)
+        .keyName(keyName)
+        .spotPrice(spotPrice.toString)
+        .subnetId(subnetId)
+        .availabilityZone(availabilityZone)
+        .instanceType(instanceType)
+        .vpcSecurityGroupIds(securityGroups.asJava)
+        .subnetId(subnetId)
+        .monitoring(monitoring)
+        .tags(context.mergeTags(tags).asJava)
+        .build
 
   def spotFleetRequestLaunchTemplateConfig(
     launchTemplate: LaunchTemplate,
