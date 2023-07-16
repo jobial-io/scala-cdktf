@@ -72,7 +72,7 @@ case class TerraformStackBuildContext[D](
   }
 
   def mergeTags(resourceName: String, tags: Map[String, String]) =
-    this.tags ++ tags + 
+    this.tags ++ tags +
       (CdktfNameTag -> resourceName) +
       (CdktfTimestampTag -> now.toString)
 }
@@ -293,28 +293,27 @@ trait TerraformStackBuilder {
     keyName: String,
     tags: Map[String, String]
   ): TerraformStackBuildState[D, SpotFleetRequest] = for {
-    launchTemplates <- sequence(instanceTypes.map { t =>
-      addLaunchTemplate[D](
-        s"$name-launch-template-$t",
-        imageId,
-        t,
-        subnetId,
-        securityGroups,
-        keyName,
-        tags = tags
-      )
-    })
-    launchTemplateConfigs = launchTemplates.map { t =>
-      spotFleetRequestLaunchTemplateConfig(
-        t
-      )
-    }
+    launchTemplate <- addLaunchTemplate[D](
+      s"$name-launch-template",
+      imageId,
+      subnetId,
+      securityGroups,
+      keyName,
+      instanceRequirements = Some(
+        LaunchTemplateInstanceRequirements
+          .builder
+          .allowedInstanceTypes(instanceTypes.asJava)
+          .build
+      ),
+      tags = tags
+    )
+    launchTemplateConfig = spotFleetRequestLaunchTemplateConfig(launchTemplate)
     spotFleetRequest <- addSpotFleetRequest(
       name,
       iamFleetRole,
       spotPrice,
       targetCapacity,
-      launchTemplateConfigs = launchTemplateConfigs,
+      launchTemplateConfigs = List(launchTemplateConfig),
       tags = tags
     )
   } yield spotFleetRequest
@@ -333,12 +332,12 @@ trait TerraformStackBuilder {
   def addLaunchTemplate[D](
     name: String,
     imageId: String,
-    instanceType: String,
     subnetId: String,
     securityGroups: List[String],
     keyName: String,
-    instanceProfile: Option[IamInstanceProfile] = None,
+    instanceType: Option[String] = None,
     instanceRequirements: Option[LaunchTemplateInstanceRequirements] = None,
+    instanceProfile: Option[IamInstanceProfile] = None,
     userData: Option[String] = None,
     tags: Map[String, String] = Map()
   ) = addResource[D, LaunchTemplate] { context =>
@@ -351,13 +350,13 @@ trait TerraformStackBuilder {
           .subnetId(subnetId)
           .build
       ).asJava)
-      .instanceType(instanceType)
       .keyName(keyName)
       .tags(context.mergeTags(name, tags).asJava)
       .tagSpecifications(List(
         LaunchTemplateTagSpecifications.builder.resourceType("instance").tags(context.mergeTags(name, tags).asJava).build
       ).asJava)
-    
+
+    instanceType.map(b.instanceType)
     instanceRequirements.map(b.instanceRequirements)
     instanceProfile.map(p => b.iamInstanceProfile(LaunchTemplateIamInstanceProfile.builder
       .name(s"$name-launch-template-instance-profile")
