@@ -19,6 +19,8 @@ import com.hashicorp.cdktf.providers.aws.instance.Instance
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplate
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateIamInstanceProfile
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateInstanceRequirements
+import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateInstanceRequirementsMemoryMib
+import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateInstanceRequirementsVcpuCount
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateNetworkInterfaces
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateTagSpecifications
 import com.hashicorp.cdktf.providers.aws.provider.AwsProvider
@@ -303,6 +305,18 @@ trait TerraformStackBuilder {
         LaunchTemplateInstanceRequirements
           .builder
           .allowedInstanceTypes(instanceTypes.asJava)
+          .memoryMib(
+            LaunchTemplateInstanceRequirementsMemoryMib
+              .builder
+              .min(1000)
+              .build
+          )
+          .vcpuCount(
+            LaunchTemplateInstanceRequirementsVcpuCount
+              .builder
+              .min(1)
+              .build
+          )
           .build
       ),
       tags = tags
