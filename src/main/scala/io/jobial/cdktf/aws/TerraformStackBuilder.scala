@@ -111,9 +111,9 @@ trait TerraformStackBuilder {
   def createStack[D](name: String, data: D, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
     state.run(TerraformStackBuildContext(name, data, tags)).value._1.synth
 
-  def addResource[D, T](builder: TerraformStackBuildContext[D] => Builder[T]): TerraformStackBuildState[D, T] =
+  def addResource[D, T](builder: TerraformStackBuildContext[D] => Builder[T], postBuild: (TerraformStackBuildContext[D], T) => T = (_: TerraformStackBuildContext[D], resource: T) => resource): TerraformStackBuildState[D, T] =
     State.inspect { context =>
-      builder(context).build
+      postBuild(context, builder(context).build)
     }
 
   def addCluster[D](
@@ -363,9 +363,10 @@ trait TerraformStackBuilder {
     instanceType: Option[String] = None,
     instanceRequirements: Option[LaunchTemplateInstanceRequirements] = None,
     instanceProfile: Option[IamInstanceProfile] = None,
+    availabilityZone: Option[String] = None,
     userData: Option[String] = None,
     tags: Map[String, String] = Map()
-  ) = addResource[D, LaunchTemplate] { context =>
+  ) = addResource[D, LaunchTemplate]({ context =>
     val b = LaunchTemplate.Builder
       .create(context.stack, name)
       .imageId(imageId)
@@ -378,7 +379,11 @@ trait TerraformStackBuilder {
       .keyName(keyName)
       .tags(context.mergeTags(name, tags).asJava)
       .tagSpecifications(List(
-        LaunchTemplateTagSpecifications.builder.resourceType("instance").tags(context.mergeTags(name, tags).asJava).build
+        LaunchTemplateTagSpecifications
+          .builder
+          .resourceType("instance")
+          .tags(context.mergeTags(name, tags).asJava)
+          .build
       ).asJava)
 
     instanceType.map(b.instanceType)
@@ -390,7 +395,10 @@ trait TerraformStackBuilder {
     )
     userData.map(b.userData)
     b
-  }
+  }, { (context, template) =>
+    availabilityZone.map(template.addOverride("availability_zone", _))
+    template
+  })
 
   def addIamInstanceProfile[D](
     name: String,
