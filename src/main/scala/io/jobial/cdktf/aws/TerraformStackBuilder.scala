@@ -267,8 +267,9 @@ trait TerraformStackBuilder {
     replaceUnhealthyInstances: Boolean = true,
     launchTemplateConfigs: List[SpotFleetRequestLaunchTemplateConfig] = List(),
     launchSpecifications: List[SpotFleetRequestLaunchSpecification] = List(),
+    availabilityZone: Option[String] = None,
     tags: Map[String, String] = Map()
-  ): TerraformStackBuildState[D, SpotFleetRequest] = addResource[D, SpotFleetRequest] { context =>
+  ): TerraformStackBuildState[D, SpotFleetRequest] = addResource[D, SpotFleetRequest]({ context =>
     val b = SpotFleetRequest.Builder
       .create(context.stack, name)
       .iamFleetRole(iamFleetRole)
@@ -292,7 +293,14 @@ trait TerraformStackBuilder {
       .tags(context.mergeTags(name, tags).asJava)
     validUntil.map(d => b.validUntil(d.toString))
     b
-  }
+  }, { (context, r) =>
+    // adding override for terraform bug
+    for {
+      _ <- launchTemplateConfigs.headOption
+      availabilityZone <- availabilityZone
+    } r.addOverride("launch_template_config.availability_zone", availabilityZone)
+    r
+  })
 
   def addSpotFleetRequest[D](
     name: String,
@@ -363,10 +371,9 @@ trait TerraformStackBuilder {
     instanceType: Option[String] = None,
     instanceRequirements: Option[LaunchTemplateInstanceRequirements] = None,
     instanceProfile: Option[IamInstanceProfile] = None,
-    availabilityZone: Option[String] = None,
     userData: Option[String] = None,
     tags: Map[String, String] = Map()
-  ) = addResource[D, LaunchTemplate]({ context =>
+  ) = addResource[D, LaunchTemplate] { context =>
     val b = LaunchTemplate.Builder
       .create(context.stack, name)
       .imageId(imageId)
@@ -395,10 +402,7 @@ trait TerraformStackBuilder {
     )
     userData.map(b.userData)
     b
-  }, { (context, template) =>
-    availabilityZone.map(template.addOverride("availability_zone", _))
-    template
-  })
+  }
 
   def addIamInstanceProfile[D](
     name: String,
