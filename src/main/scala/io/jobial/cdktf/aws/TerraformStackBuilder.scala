@@ -111,16 +111,22 @@ trait TerraformStackBuilder {
   def createStack[D](name: String, data: D, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
     state.run(TerraformStackBuildContext(name, data, tags)).value._1.synth
 
-  def addResource[D, T](builder: TerraformStackBuildContext[D] => Builder[T], postBuild: (TerraformStackBuildContext[D], T) => T = (_: TerraformStackBuildContext[D], resource: T) => resource): TerraformStackBuildState[D, T] =
+  def addResource[D, T](resource: T): TerraformStackBuildState[D, T] =
     State.inspect { context =>
-      postBuild(context, builder(context).build)
+      resource
     }
+
+  def buildAndAddResource[D, T](builder: TerraformStackBuildContext[D] => Builder[T], postBuild: (TerraformStackBuildContext[D], T) => T = (_: TerraformStackBuildContext[D], resource: T) => resource): TerraformStackBuildState[D, T] =
+    for {
+      context <- getContext
+      resource <- addResource(builder(context).build)
+    } yield postBuild(context, resource)
 
   def addCluster[D](
     name: String,
     capacityProviders: List[String] = List("FARGATE"),
     tags: Map[String, String] = Map()
-  ) = addResource[D, EcsCluster] { context =>
+  ) = buildAndAddResource[D, EcsCluster] { context =>
     EcsCluster.Builder
       .create(context.stack, name)
       .name(name)
@@ -150,7 +156,7 @@ trait TerraformStackBuilder {
     memory: Int = 2048,
     tags: Map[String, String] = Map(),
     awslogsStreamPrefixOverride: Option[String] = None
-  ) = addResource[D, EcsTaskDefinition] { context =>
+  ) = buildAndAddResource[D, EcsTaskDefinition] { context =>
     val definitionsWithDependencies = context.containerDefinitionsWithTransitiveDependencies(containerDefinitions)
     EcsTaskDefinition.Builder
       .create(context.stack, name)
@@ -173,7 +179,7 @@ trait TerraformStackBuilder {
     networkConfiguration: EcsServiceNetworkConfiguration,
     forceNewDeployment: Boolean = false,
     tags: Map[String, String] = Map()
-  ) = addResource[D, EcsService] { context =>
+  ) = buildAndAddResource[D, EcsService] { context =>
     EcsService.Builder
       .create(context.stack, name)
       .name(name)
@@ -189,7 +195,7 @@ trait TerraformStackBuilder {
   def addNetworkConfiguration[D](
     securityGroups: List[String],
     subnets: List[String]
-  ) = addResource[D, EcsServiceNetworkConfiguration] { context =>
+  ) = buildAndAddResource[D, EcsServiceNetworkConfiguration] { context =>
     new EcsServiceNetworkConfiguration.Builder()
       .securityGroups(securityGroups.asJava)
       .subnets(subnets.asJava)
@@ -202,7 +208,7 @@ trait TerraformStackBuilder {
     securityGroups: List[String],
     subnetId: String,
     tags: Map[String, String] = Map()
-  ) = addResource[D, Instance] { context =>
+  ) = buildAndAddResource[D, Instance] { context =>
     Instance.Builder
       .create(context.stack, name)
       .ami(ami)
@@ -212,20 +218,20 @@ trait TerraformStackBuilder {
       .tags((context.tags ++ tags).asJava)
   }
 
-  def addS3Backend[D](bucket: String, key: String) = addResource[D, S3Backend] { context =>
+  def addS3Backend[D](bucket: String, key: String) = buildAndAddResource[D, S3Backend] { context =>
     S3Backend.Builder
       .create(context.stack)
       .bucket(bucket)
       .key(key)
   }
 
-  def addAwsProvider[D](region: String) = addResource[D, AwsProvider] { context =>
+  def addAwsProvider[D](region: String) = buildAndAddResource[D, AwsProvider] { context =>
     AwsProvider.Builder
       .create(context.stack, "AWS")
       .region(region)
   }
 
-  def addLogGroup[D](name: String, skipDestroy: Boolean = true) = addResource[D, CloudwatchLogGroup] { context =>
+  def addLogGroup[D](name: String, skipDestroy: Boolean = true) = buildAndAddResource[D, CloudwatchLogGroup] { context =>
     CloudwatchLogGroup.Builder
       .create(context.stack, s"$name-loggroup")
       .name(name)
@@ -269,7 +275,7 @@ trait TerraformStackBuilder {
     launchSpecifications: List[SpotFleetRequestLaunchSpecification] = List(),
     availabilityZone: Option[String] = None,
     tags: Map[String, String] = Map()
-  ): TerraformStackBuildState[D, SpotFleetRequest] = addResource[D, SpotFleetRequest]({ context =>
+  ): TerraformStackBuildState[D, SpotFleetRequest] = buildAndAddResource[D, SpotFleetRequest]({ context =>
     val b = SpotFleetRequest.Builder
       .create(context.stack, name)
       .iamFleetRole(iamFleetRole)
@@ -373,7 +379,7 @@ trait TerraformStackBuilder {
     instanceProfile: Option[IamInstanceProfile] = None,
     userData: Option[String] = None,
     tags: Map[String, String] = Map()
-  ) = addResource[D, LaunchTemplate] { context =>
+  ) = buildAndAddResource[D, LaunchTemplate] { context =>
     val b = LaunchTemplate.Builder
       .create(context.stack, name)
       .imageId(imageId)
@@ -407,7 +413,7 @@ trait TerraformStackBuilder {
   def addIamInstanceProfile[D](
     name: String,
     role: IamRole
-  ) = addResource[D, IamInstanceProfile] { context =>
+  ) = buildAndAddResource[D, IamInstanceProfile] { context =>
     IamInstanceProfile.Builder
       .create(context.stack, name)
       .role(role.getName)
@@ -481,7 +487,7 @@ trait TerraformStackBuilder {
     managedPolicyArns: List[String] = List(),
     inlinePolicy: List[IamRoleInlinePolicy] = List(),
     assumeRolePolicy: Option[Json] = None
-  ) = addResource[D, IamRole] { context =>
+  ) = buildAndAddResource[D, IamRole] { context =>
     val builder = IamRole.Builder
       .create(context.stack, name)
       .managedPolicyArns(managedPolicyArns.asJava)
@@ -509,7 +515,7 @@ trait TerraformStackBuilder {
       )
     )
 
-  def addPolicy[D](name: String, policy: Json) = addResource[D, IamPolicy] { context =>
+  def addPolicy[D](name: String, policy: Json) = buildAndAddResource[D, IamPolicy] { context =>
     IamPolicy.Builder
       .create(context.stack, name)
       .name(name)
