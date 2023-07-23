@@ -50,6 +50,7 @@ lazy val CdktfVersion = "0.16.3"
 lazy val CdktfProviderAwsVersion = "14.0.4"
 lazy val SoftwareConstructsVersion = "10.0.25"
 lazy val SclapVersion = "1.3.6"
+lazy val SprintVersion = "0.0.3"
 lazy val CirceVersion = "0.12.0-M3"
 lazy val LogbackVersion = "1.2.3"
 lazy val ShapelessVersion = "2.3.3"
@@ -73,7 +74,9 @@ lazy val root: Project = project
       "software.constructs" % "constructs" % SoftwareConstructsVersion,
       "com.hashicorp" % "cdktf" % CdktfVersion,
       "com.hashicorp" % "cdktf-provider-aws" % CdktfProviderAwsVersion,
-      "io.circe" %% "circe-generic-extras" % CirceVersion
+      "io.circe" %% "circe-generic-extras" % CirceVersion,
+      "io.jobial" %% "sclap" % SclapVersion,
+      "io.jobial" %% "sprint" % SprintVersion
     )
   )
 

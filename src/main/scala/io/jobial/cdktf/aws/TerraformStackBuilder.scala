@@ -3,6 +3,7 @@ package io.jobial.cdktf.aws
 import cats.data.State
 import cats.effect.IO
 import com.hashicorp.cdktf.App
+import com.hashicorp.cdktf.AppConfig
 import com.hashicorp.cdktf.S3Backend
 import com.hashicorp.cdktf.TerraformStack
 import com.hashicorp.cdktf.providers.aws.cloudwatch_log_group.CloudwatchLogGroup
@@ -49,13 +50,13 @@ import java.time.LocalDateTime
 import scala.collection.JavaConverters._
 
 case class TerraformStackBuildContext[D](
+  name: String,
   stack: TerraformStack,
   app: App,
   data: D,
   containerDefinitions: Map[String, ContainerDefinition] = Map(),
   tags: Map[String, String] = Map()
 ) {
-
   def synth = IO(app.synth())
 
   def updateData(data: D) = copy(data = data)
@@ -92,11 +93,15 @@ case class TerraformStackBuildContext[D](
 
 object TerraformStackBuildContext {
 
-  def apply[D](name: String, data: D, tags: Map[String, String]) = {
-    val app = new App
-    new TerraformStackBuildContext(new TerraformStack(app, name), app, data, tags = tags)
+  def apply[D](name: String, data: D, appContext: Map[String, _], tags: Map[String, String]) = {
+    val config = AppConfig
+      .builder
+      .context(appContext.asJava)
+      .build
+    val app = new App(config)
+    new TerraformStackBuildContext(name, new TerraformStack(app, name), app, data, tags = tags)
   }
-
+  
   val CdktfNameTag = "cdktf:name"
   val CdktfTimestampTag = "cdktf:timestamp"
 }
@@ -108,9 +113,14 @@ trait TerraformStackBuilder {
   def createStack(name: String)(state: TerraformStackBuildState[Unit, Unit]) =
     createStack[Unit](name, ())(state)
 
-  def createStack[D](name: String, data: D, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
-    state.run(TerraformStackBuildContext(name, data, tags)).value._1.synth
-
+  def createStack[D](name: String, data: D, appContext: Map[String, _] = defaultAppContext, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
+    state.run(TerraformStackBuildContext(name, data, appContext, tags)).value._1
+  
+  def defaultAppContext = Map(
+    "excludeStackIdFromLogicalIds" -> true,
+    "allowSepCharsInLogicalIds" -> true
+  )
+  
   def addResource[D, T](resource: T): TerraformStackBuildState[D, T] =
     State.inspect { context =>
       resource
