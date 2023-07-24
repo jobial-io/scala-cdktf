@@ -9,21 +9,19 @@ import io.jobial.sprint.process.ProcessManagement
 
 trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
 
-  def run =
+  def run(stack: IO[TerraformStackBuildContext[D]]) =
     command.printStackTraceOnException(true) {
       for {
-        deploy <- runDeploy
-        plan <- runPlan
-      } yield deploy orElse plan orElse runStack
+        deploy <- runDeploy(stack)
+        plan <- runPlan(stack)
+      } yield deploy orElse plan orElse runStack(stack)
     }
 
-  def stack: IO[TerraformStackBuildContext[D]]
-
-  def runStack =
+  def runStack(stack: IO[TerraformStackBuildContext[D]]) =
     for {
       stack <- stack
       r <- stack.synth
-    } yield r
+    } yield stack
 
   def terraformContext(context: TerraformStackBuildContext[D]) = ProcessContext(
     directory = Some(s"./cdktf.out/stacks/${context.name}"),
@@ -33,27 +31,26 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def terraform(stack: TerraformStackBuildContext[D], args: String*)(implicit processContext: ProcessContext) =
     runProcessAndWait("terraform" +: args)
 
-  def runTerraformCommand(stack: IO[TerraformStackBuildContext[D]])(f: (TerraformStackBuildContext[D], ProcessContext) => IO[Any]) =
-    for {
-      stack <- stack
-      r <- f(stack, terraformContext(stack))
-    } yield r
+  def runTerraformCommand(stack: TerraformStackBuildContext[D])(f: ProcessContext => IO[Any]) =
+    f(terraformContext(stack))
 
-  def runDeploy = subcommand("deploy") {
+  def runDeploy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("deploy") {
     for {
-      r <- runTerraformCommand(stack) { (stack, context) =>
+      stack <- runStack(stack)
+      r <- runTerraformCommand(stack) { implicit processContext =>
         pure(println(s"Deploying ${stack.name}")) >>
-          terraform(stack, "plan")(context) >>
-          terraform(stack, "apply")(context)
+          terraform(stack, "plan") >>
+          terraform(stack, "apply")
       }
     } yield r
   }
-  
-  def runPlan = subcommand("plan") {
+
+  def runPlan(stack: IO[TerraformStackBuildContext[D]]) = subcommand("plan") {
     for {
-      r <- runTerraformCommand(stack) { (stack, context) =>
+      stack <- runStack(stack)
+      r <- runTerraformCommand(stack) { implicit processContext =>
         pure(println(s"Planning ${stack.name}")) >>
-          terraform(stack, "plan")(context)
+          terraform(stack, "plan")
       }
     } yield r
   }
