@@ -7,6 +7,15 @@ import com.hashicorp.cdktf.AppConfig
 import com.hashicorp.cdktf.S3Backend
 import com.hashicorp.cdktf.TerraformStack
 import com.hashicorp.cdktf.providers.aws.cloudwatch_log_group.CloudwatchLogGroup
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2Fleet
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfig
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfigOverride
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryMib
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsVcpuCount
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetSpotOptions
+import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetTargetCapacitySpecification
 import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsCluster
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsService
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsServiceNetworkConfiguration
@@ -492,6 +501,152 @@ trait TerraformStackBuilder {
       ).build
 
 
+  def addEc2Fleet[D](
+    name: String,
+    //iamFleetRole: String,
+    spotPrice: Double,
+    targetCapacity: Int,
+    imageId: String,
+    instanceTypes: List[String],
+    subnetId: String,
+    availabilityZone: String,
+    securityGroups: List[String],
+    keyName: String,
+    tags: Map[String, String]
+  ): TerraformStackBuildState[D, Ec2Fleet] = for {
+    launchTemplate <- addLaunchTemplate[D](
+      s"$name-launch-template",
+      imageId,
+      subnetId,
+      securityGroups,
+      keyName,
+      instanceRequirements = Some(
+        LaunchTemplateInstanceRequirements
+          .builder
+          .allowedInstanceTypes(instanceTypes.asJava)
+          .memoryMib(
+            LaunchTemplateInstanceRequirementsMemoryMib
+              .builder
+              .min(1000)
+              .build
+          )
+          .vcpuCount(
+            LaunchTemplateInstanceRequirementsVcpuCount
+              .builder
+              .min(1)
+              .build
+          )
+          .build
+      ),
+      tags = tags
+    )
+    launchTemplateConfig = ec2FleetLaunchTemplateConfig(
+      launchTemplate,
+      overrides = List(ec2FleetLaunchTemplateConfigOverride(
+        subnetId,
+        spotPrice,
+        instanceTypes,
+        availabilityZone
+      ))
+    )
+    fleet <- addEc2Fleet(
+      name,
+      List(launchTemplateConfig),
+      targetCapacity,
+      tags = tags
+    )
+  } yield fleet
+
+  def ec2FleetLaunchTemplateConfig(
+    launchTemplate: LaunchTemplate,
+    version: String = "$Latest",
+    overrides: List[Ec2FleetLaunchTemplateConfigOverride] = List()
+  ) =
+    Ec2FleetLaunchTemplateConfig
+      .builder
+      .launchTemplateSpecification(
+        Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification
+          .builder
+          .launchTemplateName(launchTemplate.getName)
+          .version(version)
+          .build
+      )
+      .`override`(overrides.asJava)
+      .build
+
+  def ec2FleetLaunchTemplateConfigOverride(
+    subnetId: String,
+    maxPrice: Double,
+    instanceTypes: List[String],
+    availabilityZone: String
+  ) =
+    Ec2FleetLaunchTemplateConfigOverride
+      .builder
+      .subnetId(subnetId)
+      .availabilityZone(availabilityZone)
+      .maxPrice(maxPrice.toString)
+      .instanceRequirements(
+        Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements
+          .builder
+          .allowedInstanceTypes(instanceTypes.asJava)
+          .memoryMib(
+            Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryMib
+              .builder
+              .min(1)
+              .build
+          )
+          .vcpuCount(
+            Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsVcpuCount
+              .builder
+              .min(1)
+              .build
+          )
+          .build
+      )
+      .build
+
+  def addEc2Fleet[D](
+    name: String,
+    launchTemplateConfigs: List[Ec2FleetLaunchTemplateConfig],
+    spotTargetCapacity: Int,
+    onDemandTargetCapacity: Int = 0,
+    terminateInstancesWithExpiration: Boolean = true,
+    terminateInstancesOnDelete: Boolean = true,
+    validUntil: Option[LocalDateTime] = None,
+    fleetType: String = "maintain",
+    allocationStrategy: String = "lowestPrice",
+    instanceInterruptionBehaviour: String = "stop",
+    replaceUnhealthyInstances: Boolean = true,
+    tags: Map[String, String] = Map()
+  ): TerraformStackBuildState[D, Ec2Fleet] = buildAndAddResource { context =>
+    val b = Ec2Fleet.Builder
+      .create(context.stack, name)
+      .launchTemplateConfig(launchTemplateConfigs.asJava)
+      .spotOptions(
+        Ec2FleetSpotOptions
+          .builder
+          .allocationStrategy(allocationStrategy)
+          .instanceInterruptionBehavior(instanceInterruptionBehaviour)
+          .build
+      )
+      .`type`(fleetType)
+      .terminateInstancesWithExpiration(terminateInstancesWithExpiration)
+      .terminateInstances(terminateInstancesOnDelete)
+      .replaceUnhealthyInstances(replaceUnhealthyInstances)
+      .targetCapacitySpecification(
+        Ec2FleetTargetCapacitySpecification
+          .builder
+          .defaultTargetCapacityType("spot")
+          .spotTargetCapacity(spotTargetCapacity)
+          .onDemandTargetCapacity(onDemandTargetCapacity)
+          .totalTargetCapacity(spotTargetCapacity + onDemandTargetCapacity)
+          .build
+      )
+      .tags(context.mergeTags(name, tags).asJava)
+    validUntil.map(d => b.validUntil(d.toString))
+    b
+  }
+  
   def addRole[D](
     name: String,
     managedPolicyArns: List[String] = List(),
