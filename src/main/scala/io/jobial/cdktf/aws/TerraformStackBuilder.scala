@@ -31,6 +31,8 @@ import com.hashicorp.cdktf.providers.aws.iam_policy.IamPolicy
 import com.hashicorp.cdktf.providers.aws.iam_role.IamRole
 import com.hashicorp.cdktf.providers.aws.iam_role.IamRoleInlinePolicy
 import com.hashicorp.cdktf.providers.aws.instance.Instance
+import com.hashicorp.cdktf.providers.aws.instance.InstanceInstanceMarketOptions
+import com.hashicorp.cdktf.providers.aws.instance.InstanceInstanceMarketOptionsSpotOptions
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplate
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateIamInstanceProfile
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateInstanceRequirements
@@ -254,18 +256,33 @@ trait TerraformStackBuilder {
     instanceType: String,
     securityGroups: List[String],
     subnetId: String,
-    count: Int = 1,
-
+    maxPrice: Option[Double] = None,
+    validUntil: Option[LocalDateTime] = None,
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, Instance] { context =>
-    Instance.Builder
+    val b = Instance.Builder
       .create(context.stack, name)
       .ami(ami)
       .instanceType(instanceType)
-      .count(count)
       .securityGroups(securityGroups.asJava)
       .subnetId(subnetId)
       .tags((context.tags ++ tags).asJava)
+
+    maxPrice.map(maxPrice =>
+      b.instanceMarketOptions(
+        InstanceInstanceMarketOptions
+          .builder
+          .spotOptions {
+            val b = InstanceInstanceMarketOptionsSpotOptions
+              .builder
+              .maxPrice(maxPrice.toString)
+            validUntil.map(d => b.validUntil(d.toString))
+            b.build
+          }
+          .build
+      )
+    )
+    b
   }
 
   def addS3Backend[D](bucket: String, key: String) = buildAndAddResource[D, S3Backend] { context =>
