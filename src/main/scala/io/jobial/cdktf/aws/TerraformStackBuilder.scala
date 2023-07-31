@@ -1,5 +1,7 @@
 package io.jobial.cdktf.aws
 
+import cats.Eval
+import cats.data.IndexedStateT
 import cats.data.State
 import cats.effect.IO
 import com.hashicorp.cdktf.App
@@ -17,6 +19,9 @@ import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfigO
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetSpotOptions
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetTargetCapacitySpecification
 import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsCluster
+import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsClusterConfiguration
+import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsClusterSetting
+import com.hashicorp.cdktf.providers.aws.ecs_cluster_capacity_providers.EcsClusterCapacityProviders
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsService
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsServiceNetworkConfiguration
 import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinition
@@ -110,7 +115,7 @@ object TerraformStackBuildContext {
     val app = new App(config)
     new TerraformStackBuildContext(name, new TerraformStack(app, name), app, data, tags = tags)
   }
-  
+
   val CdktfNameTag = "cdktf:name"
   val CdktfTimestampTag = "cdktf:timestamp"
 }
@@ -124,12 +129,12 @@ trait TerraformStackBuilder {
 
   def createStack[D](name: String, data: D, appContext: Map[String, _] = defaultAppContext, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
     state.run(TerraformStackBuildContext(name, data, appContext, tags)).value._1
-  
+
   def defaultAppContext = Map(
     "excludeStackIdFromLogicalIds" -> true,
     "allowSepCharsInLogicalIds" -> true
   )
-  
+
   def addResource[D, T](resource: T): TerraformStackBuildState[D, T] =
     State.inspect { context =>
       resource
@@ -143,15 +148,36 @@ trait TerraformStackBuilder {
 
   def addCluster[D](
     name: String,
-    capacityProviders: List[String] = List("FARGATE"),
-    tags: Map[String, String] = Map()
-  ) = buildAndAddResource[D, EcsCluster] { context =>
-    EcsCluster.Builder
+    configuration: Option[EcsClusterConfiguration],
+    tags: Map[String, String]
+  ): TerraformStackBuildState[D, EcsCluster] = buildAndAddResource[D, EcsCluster] { context =>
+    val b = EcsCluster.Builder
       .create(context.stack, name)
       .name(name)
-      .capacityProviders(capacityProviders.asJava)
-      //.setting()
       .tags(context.mergeTags(name, tags).asJava)
+    configuration.map(b.configuration)
+    b
+  }
+
+  def addCluster[D](
+    name: String,
+    capacityProviders: List[String] = List("FARGATE"),
+    tags: Map[String, String] = Map()
+  ): TerraformStackBuildState[D, EcsCluster] =
+    for {
+      cluster <- addCluster(name, None, tags)
+      capacityProviders <- addClusterCapacityProviders(s"$name-capacity-providers", name, capacityProviders)
+    } yield cluster
+
+  def addClusterCapacityProviders[D](
+    name: String,
+    clusterName: String,
+    capacityProviders: List[String] = List("FARGATE")
+  ) = buildAndAddResource[D, EcsClusterCapacityProviders] { context =>
+    EcsClusterCapacityProviders.Builder
+      .create(context.stack, name)
+      .clusterName(clusterName)
+      .capacityProviders(capacityProviders.asJava)
   }
 
   def addContainerDefinition[D](
@@ -228,12 +254,15 @@ trait TerraformStackBuilder {
     instanceType: String,
     securityGroups: List[String],
     subnetId: String,
+    count: Int = 1,
+
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, Instance] { context =>
     Instance.Builder
       .create(context.stack, name)
       .ami(ami)
       .instanceType(instanceType)
+      .count(count)
       .securityGroups(securityGroups.asJava)
       .subnetId(subnetId)
       .tags((context.tags ++ tags).asJava)
@@ -648,7 +677,7 @@ trait TerraformStackBuilder {
     validUntil.map(d => b.validUntil(d.toString))
     b
   }
-  
+
   def addRole[D](
     name: String,
     managedPolicyArns: List[String] = List(),
