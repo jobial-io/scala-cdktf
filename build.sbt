@@ -15,7 +15,7 @@ name := "scala-cdktf"
 ThisBuild / organization := "io.jobial"
 ThisBuild / scalaVersion := "2.11.12"
 ThisBuild / crossScalaVersions := Seq("2.11.12", "2.12.15", "2.13.8")
-ThisBuild / version := "0.1.2"
+ThisBuild / version := "0.2.0"
 ThisBuild / scalacOptions += "-target:jvm-1.8"
 ThisBuild / javacOptions ++= Seq("-source", "11", "-target", "11")
 ThisBuild / Test / packageBin / publishArtifact := true
@@ -46,9 +46,7 @@ lazy val CatsTestkitScalatestVersion = "1.0.0-RC1"
 lazy val ScalaLoggingVersion = "3.9.2"
 lazy val ScalatestVersion = "3.2.3"
 lazy val SourcecodeVersion = "0.2.3"
-lazy val CdktfVersion = "0.16.3"
-lazy val CdktfProviderAwsVersion = "14.0.4"
-lazy val SoftwareConstructsVersion = "10.0.25"
+lazy val CdktfProviderAwsVersion = "16.0.5"
 lazy val SclapVersion = "1.3.6"
 lazy val SprintVersion = "0.0.6"
 lazy val CirceVersion = "0.12.0-M3"
@@ -71,8 +69,6 @@ lazy val root: Project = project
       "ch.qos.logback" % "logback-classic" % LogbackVersion % Test,
       "com.chuusai" %% "shapeless" % ShapelessVersion,
       "com.github.sbt" % "junit-interface" % "0.13.2" % Test,
-      "software.constructs" % "constructs" % SoftwareConstructsVersion,
-      "com.hashicorp" % "cdktf" % CdktfVersion,
       "com.hashicorp" % "cdktf-provider-aws" % CdktfProviderAwsVersion,
       "io.circe" %% "circe-generic-extras" % CirceVersion,
       "io.jobial" %% "sclap" % SclapVersion,
