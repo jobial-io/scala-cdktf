@@ -197,11 +197,13 @@ trait TerraformStackBuilder {
     taskDefinition: EcsTaskDefinition,
     networkConfiguration: EcsServiceNetworkConfiguration,
     forceNewDeployment: Boolean = false,
+    enableExecuteCommand: Boolean = true,
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, EcsService] { context =>
     EcsService.Builder
       .create(context.stack, name)
       .name(name)
+      .enableExecuteCommand(enableExecuteCommand)
       .taskDefinition(taskDefinition.getId)
       .launchType("FARGATE")
       .cluster(cluster.getId)
