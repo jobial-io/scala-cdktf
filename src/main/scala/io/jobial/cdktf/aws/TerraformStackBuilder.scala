@@ -256,6 +256,7 @@ trait TerraformStackBuilder {
     instanceType: String,
     securityGroups: List[String],
     subnetId: String,
+    spotInstanceType: String = "one-time",
     userData: Option[String] = None,
     maxPrice: Option[Double] = None,
     validUntil: Option[LocalDateTime] = None,
@@ -277,6 +278,7 @@ trait TerraformStackBuilder {
           .spotOptions {
             val b = InstanceInstanceMarketOptionsSpotOptions
               .builder
+              .spotInstanceType(spotInstanceType)
               .maxPrice(maxPrice.toString)
             validUntil.map(d => b.validUntil(d.toString))
             b.build
