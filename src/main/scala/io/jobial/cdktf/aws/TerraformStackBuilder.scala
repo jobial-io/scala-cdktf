@@ -256,6 +256,7 @@ trait TerraformStackBuilder {
     instanceType: String,
     securityGroups: List[String],
     subnetId: String,
+    userData: Option[String] = None,
     maxPrice: Option[Double] = None,
     validUntil: Option[LocalDateTime] = None,
     tags: Map[String, String] = Map()
@@ -267,11 +268,12 @@ trait TerraformStackBuilder {
       .securityGroups(securityGroups.asJava)
       .subnetId(subnetId)
       .tags((context.tags ++ tags).asJava)
-
+    userData.map(b.userData)
     maxPrice.map(maxPrice =>
       b.instanceMarketOptions(
         InstanceInstanceMarketOptions
           .builder
+          .marketType("spot")
           .spotOptions {
             val b = InstanceInstanceMarketOptionsSpotOptions
               .builder
