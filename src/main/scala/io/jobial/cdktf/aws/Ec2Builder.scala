@@ -14,6 +14,7 @@ import com.hashicorp.cdktf.providers.aws.iam_role.IamRole
 import com.hashicorp.cdktf.providers.aws.instance.Instance
 import com.hashicorp.cdktf.providers.aws.instance.InstanceInstanceMarketOptions
 import com.hashicorp.cdktf.providers.aws.instance.InstanceInstanceMarketOptionsSpotOptions
+import com.hashicorp.cdktf.providers.aws.instance.InstanceMetadataOptions
 import com.hashicorp.cdktf.providers.aws.instance.InstanceRootBlockDevice
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplate
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateIamInstanceProfile
@@ -76,6 +77,12 @@ trait Ec2Builder {
       )
       .instanceType(instanceType)
       .hibernation(hibernation)
+      .metadataOptions(
+        InstanceMetadataOptions
+          .builder
+          .httpTokens("optional")
+          .build
+      )
       .keyName(keyName)
       .securityGroups(securityGroups.asJava)
       .subnetId(subnetId)
