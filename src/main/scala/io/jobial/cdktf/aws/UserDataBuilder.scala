@@ -10,6 +10,7 @@ import java.io.FileInputStream
 import scala.sys.props
 
 trait UserDataBuilder extends CatsUtils[IO] {
+  this: TerraformStackBuilder =>
 
   type UserDataState = State[IO[String], IO[String]]
 
