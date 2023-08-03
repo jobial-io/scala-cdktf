@@ -1,7 +1,6 @@
 package io.jobial.cdktf
 
 import cats.effect.IO
-import cats.effect.IO.pure
 import io.jobial.cdktf.aws.TerraformStackBuildContext
 import io.jobial.sclap.CommandLineApp
 import io.jobial.sprint.process.ProcessContext
@@ -13,6 +12,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
     command.printStackTraceOnException(true) {
       for {
         deploy <- runDeploy(stack)
+        destroy <- runDestroy(stack)
         plan <- runPlan(stack)
       } yield deploy orElse plan orElse runStack(stack)
     }
@@ -41,6 +41,16 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
         pure(println(s"Deploying ${stack.name}")) >>
           terraform(stack, "plan") >>
           terraform(stack, "apply")
+      }
+    } yield r
+  }
+
+  def runDestroy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("destroy") {
+    for {
+      stack <- runStack(stack)
+      r <- runTerraformCommand(stack) { implicit processContext =>
+        pure(println(s"Deploying ${stack.name}")) >>
+          terraform(stack, "destroy")
       }
     } yield r
   }
