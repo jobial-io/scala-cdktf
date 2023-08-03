@@ -1,7 +1,5 @@
 package io.jobial.cdktf.aws
 
-import cats.Eval
-import cats.data.IndexedStateT
 import cats.data.State
 import cats.effect.IO
 import com.hashicorp.cdktf.App
@@ -20,7 +18,6 @@ import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetSpotOptions
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetTargetCapacitySpecification
 import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsCluster
 import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsClusterConfiguration
-import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsClusterSetting
 import com.hashicorp.cdktf.providers.aws.ecs_cluster_capacity_providers.EcsClusterCapacityProviders
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsService
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsServiceNetworkConfiguration
@@ -33,6 +30,7 @@ import com.hashicorp.cdktf.providers.aws.iam_role.IamRoleInlinePolicy
 import com.hashicorp.cdktf.providers.aws.instance.Instance
 import com.hashicorp.cdktf.providers.aws.instance.InstanceInstanceMarketOptions
 import com.hashicorp.cdktf.providers.aws.instance.InstanceInstanceMarketOptionsSpotOptions
+import com.hashicorp.cdktf.providers.aws.instance.InstanceRootBlockDevice
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplate
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateIamInstanceProfile
 import com.hashicorp.cdktf.providers.aws.launch_template.LaunchTemplateInstanceRequirements
@@ -125,7 +123,7 @@ object TerraformStackBuildContext {
 trait TerraformStackBuilder {
 
   type TerraformStackBuildState[D, A] = State[TerraformStackBuildContext[D], A]
-
+  
   def createStack(name: String)(state: TerraformStackBuildState[Unit, Unit]) =
     createStack[Unit](name, ())(state)
 
@@ -255,17 +253,39 @@ trait TerraformStackBuilder {
     ami: String,
     instanceType: String,
     securityGroups: List[String],
+    keyName: String,
     subnetId: String,
     spotInstanceType: String = "one-time",
+    instanceInterruptionBehavior: String = "stop",
+    hibernation: Boolean = false,
     userData: Option[String] = None,
     maxPrice: Option[Double] = None,
+    rootEncrypted: Boolean = true,
+    rootVolumeType: String = "gp3",
+    rootVolumeSize: Int = 100,
+    rootDeleteOnTermination: Boolean = true,
+    rootThroughput: Int = 300,
+    rootIOPS: Int = 3000,
     validUntil: Option[LocalDateTime] = None,
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, Instance] { context =>
     val b = Instance.Builder
       .create(context.stack, name)
       .ami(ami)
+      .rootBlockDevice(
+        InstanceRootBlockDevice
+          .builder
+          .encrypted(rootEncrypted)
+          .volumeType(rootVolumeType)
+          .volumeSize(rootVolumeSize)
+          .deleteOnTermination(rootDeleteOnTermination)
+          .throughput(rootThroughput)
+          .iops(rootIOPS)
+          .build
+      )
       .instanceType(instanceType)
+      .hibernation(hibernation)
+      .keyName(keyName)
       .securityGroups(securityGroups.asJava)
       .subnetId(subnetId)
       .tags((context.tags ++ tags).asJava)
@@ -279,6 +299,7 @@ trait TerraformStackBuilder {
             val b = InstanceInstanceMarketOptionsSpotOptions
               .builder
               .spotInstanceType(spotInstanceType)
+              .instanceInterruptionBehavior(instanceInterruptionBehavior)
               .maxPrice(maxPrice.toString)
             validUntil.map(d => b.validUntil(d.toString))
             b.build
@@ -534,17 +555,21 @@ trait TerraformStackBuilder {
   }
 
   def spotFleetRequestLaunchTemplateConfigOverrides =
-    SpotFleetRequestLaunchTemplateConfigOverrides.builder
+    SpotFleetRequestLaunchTemplateConfigOverrides
+      .builder
       .instanceRequirements(
-        SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements.builder
+        SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements
+          .builder
           .vcpuCount(
-            SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount.builder
+            SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount
+              .builder
               .min(1)
               .max(64)
               .build
           )
           .memoryMib(
-            SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib.builder
+            SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib
+              .builder
               .min(1)
               .max(100000)
               .build
@@ -555,7 +580,6 @@ trait TerraformStackBuilder {
 
   def addEc2Fleet[D](
     name: String,
-    //iamFleetRole: String,
     spotPrice: Double,
     targetCapacity: Int,
     imageId: String,
