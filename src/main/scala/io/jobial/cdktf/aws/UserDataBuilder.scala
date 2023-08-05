@@ -6,6 +6,7 @@ import cats.implicits.catsSyntaxFlatMapOps
 import io.jobial.sprint.util.CatsUtils
 import org.apache.commons.io.IOUtils
 
+import java.io.File
 import java.io.FileInputStream
 import scala.sys.props
 
@@ -30,6 +31,36 @@ trait UserDataBuilder extends CatsUtils[IO] {
   def addUserData(data: String): UserDataState =
     addUserData(pure(data))
 
+  def addUserDataLines(data: String): UserDataState =
+    addUserData(pure(s"\n$data\n"))
+
+  def addFile(path: String, content: IO[String], overwrite: Boolean = true) = addUserData {
+    for {
+      content <- content
+    } yield
+      s"""
+mkdir -p ${new File(path).getParentFile.getPath}
+cat <<EOF ${if (overwrite) ">" else ">>"}${path}
+${content}EOF
+"""
+  }
+
+  def addToFile(path: String, content: String) =
+    addFile(path, pure(content), false)
+
+  def addFileFromHome(path: String, targetDir: String = "/home/ec2-user") =
+    for {
+      content <- readFileFromHome(path)
+      _ <- addFile(s"$targetDir/${path}", content)
+    } yield ()
+
+  def readFile(path: String) = State.inspect { _: IO[String] =>
+    delay(IOUtils.toString(new FileInputStream(path)))
+  }
+
+  def readFileFromHome(path: String) =
+    readFile(s"${props("user.home")}/${path}")
+
   val shebang = addUserData("""#!/bin/bash
 """)
 
@@ -40,41 +71,35 @@ id ec2-user
 newgrp docker
 yum install python3-pip
 pip3 install docker-compose
+echo '{ "experimental": true }' > /etc/docker/daemon.json
 systemctl enable docker.service
 systemctl start docker.service
 systemctl status docker.service
 """)
 
-  val addUserAwsCredentials = addUserData {
-    for {
-      credentials <- delay(IOUtils.toString(new FileInputStream(s"${props("user.home")}/.aws/credentials")))
-    } yield
-      s"""
-mkdir /root/.aws
-cat <<EOF >/root/.aws/credentials
-${credentials}EOF
-"""
-  }
+  val addUserAwsCredentials =
+    addFileFromHome(".aws/credentials") >>
+      addFileFromHome(".aws/credentials", "/root")
 
-  val addUserSshPublicKey = addUserData {
-    for {
-      sshPublicKey <- delay(IOUtils.toString(new FileInputStream(s"${props("user.home")}/.ssh/id_rsa.pub")))
-    } yield
-      s"""
-cat <<EOF >>/home/ec2-user/.ssh/authorized_keys
-${sshPublicKey}EOF
-"""
-  }
+  val addUserSshPublicKey =
+    addFileFromHome(".ssh/id_rsa.pub") >>
+      addUserDataLines("cat /home/ec2-user/.ssh/id_rsa.pub >> /home/ec2-user/.ssh/authorized_keys") >>
+      addUserDataLines("chown ec2-user /home/ec2-user/.ssh/id_rsa.pub")
 
-  def ecrLogin(region: String, accountId: String) = addUserData(
-    s"\naws ecr get-login-password --region $region | docker login --username AWS --password-stdin $accountId.dkr.ecr.$region.amazonaws.com"
+  val addUserSshPrivateKey =
+    addFileFromHome(".ssh/id_rsa") >>
+      addUserDataLines("chown ec2-user /home/ec2-user/.ssh/id_rsa") >>
+      addUserDataLines("chmod 600 /home/ec2-user/.ssh/id_rsa")
+
+  def ecrLogin(region: String, accountId: String) = addUserDataLines(
+    s"aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $accountId.dkr.ecr.$region.amazonaws.com"
   )
 
-  def docker(args: String*) = addUserData(
-    ("\ndocker" :: args.toList).mkString(" ")
+  def docker(args: String*) = addUserDataLines(
+    ("docker" :: args.toList).mkString(" ")
   )
 
-  def addRoute53Record(hostedZone: String, name: String, description: String) = addUserData {
+  def addRoute53Record(name: String, hostedZone: String, description: String) = addUserData {
     """
 # create or update the given alias record and associate with the address of this instance
 function update_alias_record() {
