@@ -32,7 +32,7 @@ trait UserDataBuilder extends CatsUtils[IO] {
     addUserData(pure(data))
 
   def addUserDataLines(data: String): UserDataState =
-    addUserData(pure(s"\n$data\n"))
+    addUserData(s"\n$data\n")
 
   def addFile(path: String, content: IO[String], overwrite: Boolean = true) = addUserData {
     for {
