@@ -324,7 +324,6 @@ trait Ec2Builder {
           .build
       ).build
 
-
   def addEc2Fleet[D](
     name: String,
     spotPrice: Double,

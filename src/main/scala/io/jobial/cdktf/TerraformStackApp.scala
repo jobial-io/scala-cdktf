@@ -34,23 +34,31 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def runTerraformCommand(stack: TerraformStackBuildContext[D])(f: ProcessContext => IO[Any]) =
     f(terraformContext(stack))
 
+  val autoApproveOpt = opt[Boolean]("auto-approve").default(true)
+
   def runDeploy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("deploy") {
     for {
+      autoApprove <- autoApproveOpt
+    } yield for {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
+        val args = "apply" :: (if (autoApprove) List("-auto-approve") else List())
         pure(println(s"Deploying ${stack.name}")) >>
           terraform(stack, "plan") >>
-          terraform(stack, "apply")
+          terraform(stack, args: _*)
       }
     } yield r
   }
 
   def runDestroy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("destroy") {
     for {
+      autoApprove <- autoApproveOpt
+    } yield for {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
-        pure(println(s"Deploying ${stack.name}")) >>
-          terraform(stack, "destroy")
+        val args = "destroy" :: (if (autoApprove) List("-auto-approve") else List())
+        pure(println(s"Destroying ${stack.name}")) >>
+          terraform(stack, args: _*)
       }
     } yield r
   }
