@@ -84,7 +84,8 @@ trait Ec2Builder {
           .build
       )
       .keyName(keyName)
-      .securityGroups(securityGroups.asJava)
+//      .securityGroups(securityGroups.asJava)
+      .vpcSecurityGroupIds(securityGroups.asJava)
       .subnetId(subnetId)
       .tags((context.tags ++ tags).asJava)
     userData.map(b.userData)
