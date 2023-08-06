@@ -119,4 +119,7 @@ function update_alias_record() {
 update_alias_record $hostedZone $name.$hostedZone "$description"
 """
   }
+
+  def yumInstall(packages: String*) =
+    addUserDataLines(s"yum install -y ${packages.mkString(" ")}")
 }
