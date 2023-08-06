@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 
 trait IamBuilder {
   this: TerraformStackBuilder =>
-  
+
   def addRole[D](
     name: String,
     managedPolicyArns: List[String] = List(),
@@ -108,6 +108,15 @@ trait IamBuilder {
       List(
         "*"
       )
+    )
+  )
+
+  val SessionManagerAccessPolicy = policy(
+    statement(
+      "ssmmessages:CreateControlChannel",
+      "ssmmessages:CreateDataChannel",
+      "ssmmessages:OpenControlChannel",
+      "ssmmessages:OpenDataChannel"
     )
   )
 
