@@ -84,10 +84,9 @@ trait Ec2Builder {
           .build
       )
       .keyName(keyName)
-//      .securityGroups(securityGroups.asJava)
       .vpcSecurityGroupIds(securityGroups.asJava)
       .subnetId(subnetId)
-      .tags((context.tags ++ tags).asJava)
+      .tags(context.mergeTags(name, tags).asJava)
     userData.map(b.userData)
     maxPrice.map(maxPrice =>
       b.instanceMarketOptions(
