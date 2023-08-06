@@ -59,6 +59,7 @@ trait Ec2Builder {
     rootThroughput: Int = 300,
     rootIOPS: Int = 3000,
     validUntil: Option[LocalDateTime] = None,
+    instanceProfile: Option[IamInstanceProfile] = None,
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, Instance] { context =>
     val b = Instance.Builder
@@ -105,6 +106,7 @@ trait Ec2Builder {
           .build
       )
     )
+    instanceProfile.map(p => b.iamInstanceProfile(p.getName))
     b
   }
 
