@@ -1,5 +1,7 @@
 package io.jobial.cdktf.aws
 
+import cats.Eval
+import cats.data.IndexedStateT
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2Fleet
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfig
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification
@@ -33,13 +35,14 @@ import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaun
 import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount
 import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestSpotMaintenanceStrategies
 import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance
+import io.circe.Json
 
 import java.time.LocalDateTime
 import scala.collection.JavaConverters._
 
 trait Ec2Builder {
   this: TerraformStackBuilder =>
-  
+
   def addInstance[D](
     name: String,
     ami: String,
@@ -109,6 +112,60 @@ trait Ec2Builder {
     instanceProfile.map(p => b.iamInstanceProfile(p.getName))
     b
   }
+
+  def addInstanceWithProfileStatements[D](
+    name: String,
+    ami: String,
+    instanceType: String,
+    securityGroups: List[String],
+    keyName: String,
+    subnetId: String,
+    instanceProfileStatements: List[Json],
+    spotInstanceType: String = "one-time",
+    instanceInterruptionBehavior: String = "stop",
+    hibernation: Boolean = false,
+    userData: Option[String] = None,
+    maxPrice: Option[Double] = None,
+    rootEncrypted: Boolean = true,
+    rootVolumeType: String = "gp3",
+    rootVolumeSize: Int = 100,
+    rootDeleteOnTermination: Boolean = true,
+    rootThroughput: Int = 300,
+    rootIOPS: Int = 3000,
+    validUntil: Option[LocalDateTime] = None,
+    tags: Map[String, String] = Map()
+  ): TerraformStackBuildState[D, Instance] = for {
+    instancePolicy <- addPolicy(s"$name-instance-policy",
+      policy(instanceProfileStatements)
+    )
+    instanceRole <- addRole(s"$name-instance-role",
+      assumeRolePolicy = Some(policy("ec2.amazonaws.com", "sts:AssumeRole")),
+      managedPolicyArns = List(instancePolicy.getArn)
+    )
+    instanceProfile <- addIamInstanceProfile(s"$name-instance-profile", instanceRole)
+    instance <- addInstance[D](
+      name,
+      ami,
+      instanceType,
+      securityGroups,
+      keyName,
+      subnetId,
+      spotInstanceType,
+      instanceInterruptionBehavior,
+      hibernation,
+      userData,
+      maxPrice,
+      rootEncrypted,
+      rootVolumeType,
+      rootVolumeSize,
+      rootDeleteOnTermination,
+      rootThroughput,
+      rootIOPS,
+      validUntil,
+      Some(instanceProfile),
+      tags
+    )
+  } yield instance
 
   def addSpotFleetRequest[D](
     name: String,
