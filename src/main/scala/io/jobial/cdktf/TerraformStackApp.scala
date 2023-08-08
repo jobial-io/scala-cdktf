@@ -39,7 +39,11 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def runDeploy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("deploy") {
     for {
       autoApprove <- autoApproveOpt
-    } yield for {
+    } yield deploy(stack, autoApprove)
+  }
+
+  def deploy(stack: IO[TerraformStackBuildContext[D]], autoApprove: Boolean) =
+    for {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "apply" :: (if (autoApprove) List("-auto-approve") else List())
@@ -48,12 +52,15 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           terraform(stack, args: _*)
       }
     } yield r
-  }
 
   def runDestroy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("destroy") {
     for {
       autoApprove <- autoApproveOpt
-    } yield for {
+    } yield destroy(stack, autoApprove)
+  }
+
+  def destroy(stack: IO[TerraformStackBuildContext[D]], autoApprove: Boolean) =
+    for {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "destroy" :: (if (autoApprove) List("-auto-approve") else List())
@@ -61,6 +68,11 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           terraform(stack, args: _*)
       }
     } yield r
+
+  def runRedeploy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("redeploy") {
+    for {
+      autoApprove <- autoApproveOpt
+    } yield destroy(stack, autoApprove) >> deploy(stack, autoApprove)
   }
 
   def runPlan(stack: IO[TerraformStackBuildContext[D]]) = subcommand("plan") {
