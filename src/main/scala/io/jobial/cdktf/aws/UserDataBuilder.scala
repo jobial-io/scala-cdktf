@@ -122,10 +122,14 @@ update_alias_record $hostedZone $name.$hostedZone "$description"
 
   def yumInstall(packages: String*) =
     addUserDataLines(s"yum install -y ${packages.mkString(" ")}")
-    
-  def addCrontab(cronLines: Map[String, String]) =
+
+  def addCrontab(cronLines: List[(String, String)]) =
     for {
       _ <- addFile("/tmp/crontab", pure(cronLines.map(l => s"${l._1} ${l._2}").mkString("\n")))
       _ <- addUserDataLines("crontab /tmp/crontab ; rm -f /tmp/crontab")
+      _ <- addUserDataLines("rm /var/run/crond.reboot ; systemctl restart crond")
     } yield ()
+
+  def addCrontab(cronLines: (String, String)*): UserDataState =
+    addCrontab(cronLines: _*)
 }
