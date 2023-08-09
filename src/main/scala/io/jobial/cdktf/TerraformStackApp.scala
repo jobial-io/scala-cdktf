@@ -13,8 +13,14 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       for {
         deploy <- runDeploy(stack)
         destroy <- runDestroy(stack)
+        redeploy <- runRedeploy(stack)
         plan <- runPlan(stack)
-      } yield deploy orElse plan orElse runStack(stack)
+      } yield
+        deploy orElse
+          destroy orElse
+          redeploy orElse
+          plan orElse
+          runStack(stack)
     }
 
   def runStack(stack: IO[TerraformStackBuildContext[D]]) =
