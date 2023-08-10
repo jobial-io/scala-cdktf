@@ -99,7 +99,7 @@ systemctl status docker.service
     ("docker" :: args.toList).mkString(" ")
   )
 
-  def addRoute53Record(name: String, hostedZone: String, description: String) = addUserData {
+  def addRoute53Record(name: String, hostedZone: String, description: String, ttl: Int = 30) = addUserData {
     """
 # create or update the given alias record and associate with the address of this instance
 function update_alias_record() {
@@ -112,7 +112,7 @@ function update_alias_record() {
     hosted_zone_id=$(aws route53 list-hosted-zones --query 'HostedZones[?Name==`'"$hosted_zone_name"'.`].Id' --output text)
     
     aws route53 change-resource-record-sets --hosted-zone-id "$hosted_zone_id" \
-    --change-batch '{ "Comment": "'"$comment"'","Changes": [ { "Action": "UPSERT", "ResourceRecordSet": { "Name": "'"$record_name"'", "Type": "A", "TTL": 120, "ResourceRecords": [ { "Value": "'"$address"'" } ] } } ] }'
+    --change-batch '{ "Comment": "'"$comment"'","Changes": [ { "Action": "UPSERT", "ResourceRecordSet": { "Name": "'"$record_name"'", "Type": "A", "TTL": """ + ttl + """, "ResourceRecords": [ { "Value": "'"$address"'" } ] } } ] }'
 }
 """ +
       s"""
