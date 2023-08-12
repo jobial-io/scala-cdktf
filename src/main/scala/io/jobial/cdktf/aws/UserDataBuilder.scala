@@ -81,9 +81,9 @@ systemctl status docker.service
     addFileFromHome(".aws/credentials") >>
       addFileFromHome(".aws/credentials", "/root")
 
-  val addUserSshPublicKey =
+  def addUserSshPublicKey(overwrite: Boolean = true) =
     addFileFromHome(".ssh/id_rsa.pub") >>
-      addUserDataLines("cat /home/ec2-user/.ssh/id_rsa.pub >> /home/ec2-user/.ssh/authorized_keys") >>
+      addUserDataLines(s"cat /home/ec2-user/.ssh/id_rsa.pub ${if (overwrite) ">" else ">>"} /home/ec2-user/.ssh/authorized_keys") >>
       addUserDataLines("chown ec2-user /home/ec2-user/.ssh/id_rsa.pub")
 
   val addUserSshPrivateKey =
