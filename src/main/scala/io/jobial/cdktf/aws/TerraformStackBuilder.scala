@@ -9,6 +9,7 @@ import com.hashicorp.cdktf.TerraformStack
 import com.hashicorp.cdktf.providers.aws.provider.AwsProvider
 import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfNameTag
 import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfTimestampTag
+import io.jobial.cdktf.aws.TerraformStackBuildContext.NameTag
 import software.amazon.jsii.Builder
 
 import java.time.Instant.now
@@ -40,14 +41,10 @@ case class TerraformStackBuildContext[D](
   }
 
   def mergeTags(resourceName: Option[String], tags: Map[String, String]) =
-    this.tags ++ tags ++
-      (resourceName match {
-        case Some(resourceName) =>
-          Map(CdktfNameTag -> resourceName)
-        case None =>
-          Map()
-      }) +
-      (CdktfTimestampTag -> now.toString)
+    this.tags ++
+      resourceName.map(name => Map(CdktfNameTag -> name)).getOrElse(Map()) ++
+      Map(CdktfTimestampTag -> now.toString) ++
+      tags
 
   def mergeTags(resourceName: String, tags: Map[String, String]): Map[String, String] =
     mergeTags(Some(resourceName), tags)
@@ -67,6 +64,7 @@ object TerraformStackBuildContext {
     new TerraformStackBuildContext(name, new TerraformStack(app, name), app, data, tags = tags)
   }
 
+  val NameTag = "Name"
   val CdktfNameTag = "cdktf:name"
   val CdktfTimestampTag = "cdktf:timestamp"
 }
