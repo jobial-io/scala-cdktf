@@ -36,6 +36,7 @@ import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestLaun
 import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestSpotMaintenanceStrategies
 import com.hashicorp.cdktf.providers.aws.spot_fleet_request.SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance
 import io.circe.Json
+import io.jobial.cdktf.aws.TerraformStackBuildContext.NameTag
 
 import java.time.LocalDateTime
 import scala.collection.JavaConverters._
@@ -205,7 +206,7 @@ trait Ec2Builder {
       .instanceInterruptionBehaviour(instanceInterruptionBehaviour)
       //.excessCapacityTerminationPolicy()
       .replaceUnhealthyInstances(replaceUnhealthyInstances)
-      .tags(context.mergeTags(name, tags).asJava)
+      .tags(context.mergeTags(name, Map(NameTag -> name) ++ tags).asJava)
     validUntil.map(d => b.validUntil(d.toString))
     b
   }, { (context, r) =>
