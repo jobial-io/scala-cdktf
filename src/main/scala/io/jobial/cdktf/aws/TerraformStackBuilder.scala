@@ -69,7 +69,9 @@ object TerraformStackBuildContext {
   val CdktfTimestampTag = "cdktf:timestamp"
 }
 
-trait TerraformStackBuilder extends IamBuilder with Ec2Builder with UserDataBuilder with EcsBuilder with CloudwatchBuilder {
+trait TerraformStackBuilder extends IamBuilder with Ec2Builder
+  with UserDataBuilder with EcsBuilder with CloudwatchBuilder
+  with CdktfSupport {
 
   type TerraformStackBuildState[D, A] = State[TerraformStackBuildContext[D], A]
 
@@ -77,7 +79,10 @@ trait TerraformStackBuilder extends IamBuilder with Ec2Builder with UserDataBuil
     createStack[Unit](name, ())(state)
 
   def createStack[D](name: String, data: D, appContext: Map[String, _] = defaultAppContext, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
-    state.run(TerraformStackBuildContext(name, data, appContext, tags)).value._1
+    for {
+      _ <- generateCdktfConfig(name)
+      stack <- delay(state.run(TerraformStackBuildContext(name, data, appContext, tags)).value._1)
+    } yield stack
 
   def defaultAppContext = Map(
     "excludeStackIdFromLogicalIds" -> true,
