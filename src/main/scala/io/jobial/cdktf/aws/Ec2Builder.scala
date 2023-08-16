@@ -91,7 +91,7 @@ trait Ec2Builder {
       .keyName(keyName)
       .vpcSecurityGroupIds(securityGroups.asJava)
       .subnetId(subnetId)
-      .tags(context.mergeTags(name, tags).asJava)
+      .tags(context.mergeTags(name, Map(NameTag -> name) ++ tags).asJava)
     userData.map(b.userData)
     maxPrice.map(maxPrice =>
       b.instanceMarketOptions(
@@ -524,7 +524,7 @@ trait Ec2Builder {
           .totalTargetCapacity(spotTargetCapacity + onDemandTargetCapacity)
           .build
       )
-      .tags(context.mergeTags(name, tags).asJava)
+      .tags(context.mergeTags(name, Map(NameTag -> name) ++ tags).asJava)
     validUntil.map(d => b.validUntil(d.toString))
     b
   }
