@@ -15,7 +15,7 @@ name := "scala-cdktf"
 ThisBuild / organization := "io.jobial"
 ThisBuild / scalaVersion := "2.11.12"
 ThisBuild / crossScalaVersions := Seq("2.11.12", "2.12.15", "2.13.8")
-ThisBuild / version := "0.4.2"
+ThisBuild / version := "0.5.0"
 ThisBuild / scalacOptions += "-target:jvm-1.8"
 ThisBuild / javacOptions ++= Seq("-source", "11", "-target", "11")
 ThisBuild / Test / packageBin / publishArtifact := true
@@ -48,11 +48,12 @@ lazy val ScalatestVersion = "3.2.3"
 lazy val SourcecodeVersion = "0.2.3"
 lazy val CdktfProviderAwsVersion = "16.0.5"
 lazy val SclapVersion = "1.3.6"
-lazy val SprintVersion = "0.0.6"
+lazy val SprintVersion = "0.0.7"
 lazy val CirceVersion = "0.12.0-M3"
 lazy val LogbackVersion = "1.2.3"
 lazy val ShapelessVersion = "2.3.3"
 lazy val ProguardVersion = "7.2.2"
+lazy val ScaseVersion = "1.3.6"
 
 lazy val root: Project = project
   .in(file("."))
@@ -72,7 +73,8 @@ lazy val root: Project = project
       "com.hashicorp" % "cdktf-provider-aws" % CdktfProviderAwsVersion,
       "io.circe" %% "circe-generic-extras" % CirceVersion,
       "io.jobial" %% "sclap" % SclapVersion,
-      "io.jobial" %% "sprint" % SprintVersion
+      "io.jobial" %% "sprint" % SprintVersion,
+      "io.jobial" %% "scase-aws" % ScaseVersion
     )
   )
 

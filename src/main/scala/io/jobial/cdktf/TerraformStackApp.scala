@@ -53,7 +53,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "apply" :: (if (autoApprove) List("-auto-approve") else List())
-        pure(println(s"Deploying ${stack.name}")) >>
+        printLn(s"Deploying ${stack.name}") >>
           terraform(stack, "plan") >>
           terraform(stack, args: _*)
       }
@@ -70,7 +70,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "destroy" :: (if (autoApprove) List("-auto-approve") else List())
-        pure(println(s"Destroying ${stack.name}")) >>
+        printLn(s"Destroying ${stack.name}") >>
           terraform(stack, args: _*)
       }
     } yield r
@@ -85,7 +85,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
     for {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
-        pure(println(s"Planning ${stack.name}")) >>
+        printLn(s"Planning ${stack.name}") >>
           terraform(stack, "plan")
       }
     } yield r
