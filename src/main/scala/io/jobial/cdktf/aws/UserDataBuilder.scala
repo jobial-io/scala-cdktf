@@ -1,16 +1,21 @@
 package io.jobial.cdktf.aws
 
 import cats.data.State
+import cats.effect.Concurrent
 import cats.effect.IO
+import cats.effect.Timer
 import cats.implicits.catsSyntaxFlatMapOps
+import io.jobial.scase.aws.client.S3Client
+import io.jobial.sprint.process.ProcessContext
 import io.jobial.sprint.util.CatsUtils
 import org.apache.commons.io.IOUtils
 
 import java.io.File
 import java.io.FileInputStream
+import java.util.UUID.randomUUID
 import scala.sys.props
 
-trait UserDataBuilder extends CatsUtils[IO] {
+trait UserDataBuilder extends CatsUtils[IO] with S3Client[IO] {
   this: TerraformStackBuilder =>
 
   type UserDataState = State[IO[String], IO[String]]
@@ -34,7 +39,7 @@ trait UserDataBuilder extends CatsUtils[IO] {
   def addUserDataLines(data: String): UserDataState =
     addUserData(s"\n$data\n")
 
-  def addFile(path: String, content: IO[String], overwrite: Boolean = true) = addUserData {
+  def addFile(path: String, content: IO[String], overwrite: Boolean = true): UserDataState = addUserData {
     for {
       content <- content
     } yield
@@ -44,6 +49,9 @@ cat <<EOF ${if (overwrite) ">" else ">>"}${path}
 ${content}EOF
 """
   }
+
+  def addFile(path: String, content: String): UserDataState =
+    addFile(path, pure(content))
 
   def addToFile(path: String, content: String) =
     addFile(path, pure(content), false)
@@ -65,7 +73,7 @@ ${content}EOF
 """)
 
   val installDocker = addUserData("""
-yum -y install docker
+yum -y install docker criu
 usermod -a -G docker ec2-user
 id ec2-user
 newgrp docker
@@ -125,11 +133,23 @@ update_alias_record $hostedZone $name.$hostedZone "$description"
 
   def addCrontab(cronLines: List[(String, String)]): UserDataState =
     for {
-      _ <- addFile("/tmp/crontab", pure(cronLines.map(l => s"${l._1} ${l._2}").mkString("\n")))
+      _ <- addFile("/tmp/crontab", pure(cronLines.map(l => s"${l._1} ${l._2}").mkString("", "\n", "\n")))
       _ <- addUserDataLines("crontab /tmp/crontab ; rm -f /tmp/crontab")
-      r <- addUserDataLines("rm /var/run/crond.reboot ; systemctl restart crond")
+      r <- addUserDataLines("rm -f /var/run/crond.reboot ; systemctl restart crond")
     } yield r
 
   def addCrontab(cronLines: (String, String)*): UserDataState =
     addCrontab(cronLines.toList)
+
+  def copyPath(fromPath: String, toPath: String, bucket: String, bucketPath: String)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): UserDataState =
+    addUserData {
+      val bucketUri = s"s3://$bucket$bucketPath"
+      s3Sync(fromPath, bucketUri) >>
+        pure(s"""aws s3 sync ${bucketUri} ${toPath}""")
+    }
+
+  def copyFromHome(path: String, bucket: String = "cbtech", bucketPath: String = "tmp")(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): UserDataState =
+    copyPath(s"${sys.props("user.home")}/$path", s"/home/ec2user/$path", bucket, s"$bucketPath/${randomUUID}/")
+
+
 }
