@@ -59,7 +59,7 @@ trait UserDataBuilder extends CatsUtils[IO] with S3Client[IO] {
 
   def addFile(path: String, content: UserData, overwrite: Boolean = true): UserData =
     addUserDataLines(s"\nmkdir -p ${Option(Paths.get(path).getParent).getOrElse("/")}") >>
-      addUserDataLines(s"cat <<EOF ${if (overwrite) ">" else ">>"}${path}") >>
+      addUserDataLines(s"cat <<EOF ${if (overwrite) ">" else ">>"}${path}\n") >>
       content >> "EOF\n\n"
 
   def addScript(path: String, content: UserData) =
