@@ -1,18 +1,15 @@
 package io.jobial.cdktf.aws
 
-import cats.Traverse.ops.toAllTraverseOps
 import cats.data.State
 import cats.effect.Concurrent
 import cats.effect.IO
 import cats.effect.Timer
-import cats.implicits.catsStdInstancesForList
 import cats.implicits.catsSyntaxFlatMapOps
 import io.jobial.scase.aws.client.S3Client
 import io.jobial.sprint.process.ProcessContext
 import io.jobial.sprint.util.CatsUtils
 import org.apache.commons.io.IOUtils
 
-import java.io.File
 import java.io.FileInputStream
 import java.nio.file.Paths
 import java.util.UUID.randomUUID
@@ -28,42 +25,49 @@ trait UserDataBuilder extends CatsUtils[IO] with S3Client[IO] {
   def userData(data: UserData) =
     evaluate(shebang >> data)
 
-  def addUserData(d: IO[String]): UserData =
+  implicit def addUserData(d: IO[String]): UserData =
     State.inspect { _: IO[String] =>
       d
     }.modify { data =>
       for {
         data <- data
         r <- d
-      } yield {
-        //println("+" + r)
+      } yield
         data + r
-      }
     }
 
   implicit def addUserData(data: String): UserData =
     addUserData(pure(data))
 
-  def addUserDataLines(data: String): UserData =
-    addUserData(s"$data\n")
-
-  def addFile(path: String, content: IO[String], overwrite: Boolean = true): UserData = addUserData {
-    for {
-      content <- content
-    } yield {
-      s"""
-mkdir -p ${Option(Paths.get(path).getParent).getOrElse("/")}
-cat <<EOF ${if (overwrite) ">" else ">>"}${path}
-${content}EOF
-"""
+  def modify(data: UserData)(f: String => String) =
+    data.modify { data =>
+      for {
+        data <- data
+      } yield f(data)
     }
-  }
 
-  def addFile(path: String, content: String): UserData =
-    addFile(path, pure(content))
+  def withNewLine(data: UserData) =
+    modify(data) { data =>
+      if (data.endsWith("\n"))
+        data
+      else
+        s"${data}\n"
+    }
 
-  def addFile(path: String, data: UserData): UserData =
-    addFile(path, evaluate(data))
+  def addUserDataLines(data: String): UserData =
+    withNewLine(data)
+
+  def addFile(path: String, content: UserData, overwrite: Boolean = true): UserData =
+    addUserDataLines(s"\nmkdir -p ${Option(Paths.get(path).getParent).getOrElse("/")}") >>
+      addUserDataLines(s"cat <<EOF ${if (overwrite) ">" else ">>"}${path}") >>
+      content >> "EOF\n\n"
+
+  def addScript(path: String, content: UserData) =
+    addFile(path, content) >>
+      chmod("a+x", path)
+
+  def chmod(args: String*) =
+    command("chmod", args)
 
   def addToFile(path: String, content: String) =
     addFile(path, pure(content), false)
@@ -81,10 +85,9 @@ ${content}EOF
   def readFileFromHome(path: String) =
     readFile(s"${props("user.home")}/${path}")
 
-  val shebang = addUserData("""#!/bin/bash
-""")
+  def shebang = addUserData("#!/bin/bash\n\n")
 
-  val installDocker = addUserData("""
+  def installDocker = addUserData("""
 yum -y install docker criu
 usermod -a -G docker ec2-user
 id ec2-user
@@ -97,22 +100,28 @@ systemctl start docker.service
 systemctl status docker.service
 """)
 
-  val addUserAwsCredentials =
+  def addUserAwsCredentials =
     addFileFromHome(".aws/credentials") >>
       addFileFromHome(".aws/credentials", "/root")
 
-  def addUserSshPublicKey(overwrite: Boolean = true) =
+  def addUserSshPublicKey(overwrite: Boolean) =
     addFileFromHome(".ssh/id_rsa.pub") >>
       addUserDataLines(s"cat /home/ec2-user/.ssh/id_rsa.pub ${if (overwrite) ">" else ">>"} /home/ec2-user/.ssh/authorized_keys") >>
       addUserDataLines("chown ec2-user /home/ec2-user/.ssh/id_rsa.pub")
-  
+
+  def addUserSshPublicKey: UserData =
+    addUserSshPublicKey(true)
+
   def ecrLogin(region: String, accountId: String) = addUserDataLines(
     s"aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $accountId.dkr.ecr.$region.amazonaws.com"
   )
 
-  def docker(args: String*) = addUserDataLines(
-    ("docker" :: args.toList).mkString(" ")
+  def command(name: String, args: Seq[String]) = addUserDataLines(
+    (name +: args).mkString(" ")
   )
+
+  def docker(args: String*) =
+    command("docker", args.toList)
 
   def addRoute53Record(name: String, hostedZone: String, description: String, ttl: Int = 30) = addUserData {
     """
@@ -135,15 +144,16 @@ update_alias_record $hostedZone $name.$hostedZone "$description"
 """
   }
 
+  def yum(args: String*) =
+    command("yum", args)
+
   def yumInstall(packages: String*) =
-    addUserDataLines(s"yum install -y ${packages.mkString(" ")}")
+    yum(List("install", "-y") ++ packages: _*)
 
   def addCrontab(cronLines: List[(String, UserData)]): UserData =
-    for {
-      _ <- addFile("/tmp/crontab", cronLines.map(l => addUserData(s"${l._1}\t\t") >> s"${l._2}\n").reduce(_ >> _))
-      _ <- addUserDataLines("crontab /tmp/crontab ; rm -f /tmp/crontab")
-      r <- addUserDataLines("rm -f /var/run/crond.reboot ; systemctl restart crond")
-    } yield r
+    addFile("/tmp/crontab", cronLines.map(l => addUserData(s"${l._1}\t\t") >> withNewLine(l._2)).reduce(_ >> _) >> "\n") >>
+      addUserDataLines("crontab /tmp/crontab ; rm -f /tmp/crontab") >>
+      addUserDataLines("rm -f /var/run/crond.reboot ; systemctl restart crond")
 
   def addCrontab(cronLines: (String, UserData)*): UserData =
     addCrontab(cronLines.toList)
@@ -160,12 +170,9 @@ update_alias_record $hostedZone $name.$hostedZone "$description"
 
   def addDockerCheckpointOnShutdown(developerEnvName: String) = {
     val checkpointContainer = "/usr/local/bin/checkpoint_container"
-    addFile(checkpointContainer, pure(
-      s"""#!/bin/bash
+    addScript(checkpointContainer, s"""#!/bin/bash
 docker checkpoint create developer-env-${developerEnvName} \\$$(date +%Y%m%d-%H%M%S) 
-""")
-    ) >>
-      addUserDataLines(s"chmod +x ${checkpointContainer}") >>
+""") >>
       addFile("/etc/systemd/system/docker.service.d/override.conf", pure(
         s"""[Service]
 ExecStop=
@@ -175,7 +182,7 @@ ExecStop=${checkpointContainer}
       addUserDataLines("systemctl daemon-reload")
   }
 
-  val installPodman = addUserDataLines("""
+  def installPodman = addUserDataLines("""
 yum install -y yajl docker criu
 rpm -ivh --force https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x86_64/Packages/p/podman-4.6.1-1.fc38.x86_64.rpm \
   https://rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/c/catatonit-0.1.7-14.fc38.x86_64.rpm \
@@ -201,12 +208,10 @@ yum rm -y docker
 
   def addPodmanCheckpointOnShutdown(name: String) = {
     val checkpointContainer = s"/usr/local/bin/podman_checkpoint_${name}"
-    addFile(checkpointContainer, pure(
+    addScript(checkpointContainer,
       s"""#!/bin/bash
 podman container checkpoint ${name} 
-""")
-    ) >>
-      addUserDataLines(s"chmod +x ${checkpointContainer}") >>
+""") >>
       addFile("/etc/systemd/system/podman.service.d/override.conf", pure(
         s"""[Service]
 ExecStop=
@@ -216,9 +221,11 @@ ExecStop=${checkpointContainer}
       addUserDataLines("systemctl daemon-reload")
   }
 
-  def podman(args: String*) = addUserDataLines(
-    ("podman" :: args.toList).mkString(" ")
-  )
+  def podman(args: String*) =
+    command("podman", args.toList)
+    
+  def aws(args: String*) =
+    command("aws", args.toList)
 
   def podmanRestoreOrRun(name: String, args: String*) = addUserDataLines(
     s"podman container restore ${name} || podman run --name ${name} ${args.toList.mkString(" ")}"
