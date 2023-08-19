@@ -41,8 +41,7 @@ import io.jobial.cdktf.aws.TerraformStackBuildContext.NameTag
 import java.time.LocalDateTime
 import scala.collection.JavaConverters._
 
-trait Ec2Builder {
-  this: TerraformStackBuilder =>
+trait Ec2Builder extends IamBuilder {
 
   def addInstance[D](
     name: String,
