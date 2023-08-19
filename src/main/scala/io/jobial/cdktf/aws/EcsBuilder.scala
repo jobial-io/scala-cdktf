@@ -17,8 +17,7 @@ import io.jobial.cdktf.util.json._
 
 import scala.collection.JavaConverters._
 
-trait EcsBuilder {
-  this: TerraformStackBuilder =>
+trait EcsBuilder extends IamBuilder {
 
   def addCluster[D](
     name: String,

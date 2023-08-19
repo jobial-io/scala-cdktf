@@ -10,8 +10,7 @@ import io.jobial.cdktf.util.json._
 
 import scala.collection.JavaConverters._
 
-trait IamBuilder {
-  this: TerraformStackBuilder =>
+trait IamBuilder extends TerraformStackBuilderCore {
 
   def addRole[D](
     name: String,
