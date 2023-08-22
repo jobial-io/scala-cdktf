@@ -57,14 +57,19 @@ trait UserDataBuilder extends CatsUtils[IO] with S3Client[IO] {
   def addUserDataLines(data: String): UserData =
     withNewLine(data)
 
-  def addFile(path: String, content: UserData, overwrite: Boolean = true): UserData =
+  def addFile(path: String, content: UserData, overwrite: Boolean = true, newLineAtEnd: Boolean = true): UserData =
     addUserDataLines(s"\nmkdir -p ${Option(Paths.get(path).getParent).getOrElse("/")}") >>
       addUserDataLines(s"cat <<EOF ${if (overwrite) ">" else ">>"}${path}\n") >>
-      content >> "EOF\n\n"
+      content >>
+      (if (newLineAtEnd) "\n" else "") >>
+      "EOF\n\n"
 
   def addScript(path: String, content: UserData) =
     addFile(path, content) >>
       chmod("a+x", path)
+
+  def addBashScript(path: String, content: UserData) =
+    addScript(path, shebang >> content)
 
   def chmod(args: String*) =
     command("chmod", args)
@@ -151,7 +156,10 @@ update_alias_record $hostedZone $name.$hostedZone "$description"
     yum(List("install", "-y") ++ packages: _*)
 
   def addCrontab(cronLines: List[(String, UserData)]): UserData =
-    addFile("/tmp/crontab", cronLines.map(l => addUserData(s"${l._1}\t\t") >> withNewLine(l._2)).reduce(_ >> _) >> "\n") >>
+    addFile("/tmp/crontab",
+      addUserDataLines("PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin") >>
+        cronLines.map(l => addUserData(s"${l._1}\t\t") >> withNewLine(l._2)).reduce(_ >> _) >> "\n"
+    ) >>
       addUserDataLines("crontab /tmp/crontab ; rm -f /tmp/crontab") >>
       addUserDataLines("rm -f /var/run/crond.reboot ; systemctl restart crond")
 
@@ -170,9 +178,7 @@ update_alias_record $hostedZone $name.$hostedZone "$description"
 
   def addDockerCheckpointOnShutdown(developerEnvName: String) = {
     val checkpointContainer = "/usr/local/bin/checkpoint_container"
-    addScript(checkpointContainer, s"""#!/bin/bash
-docker checkpoint create developer-env-${developerEnvName} \\$$(date +%Y%m%d-%H%M%S) 
-""") >>
+    addBashScript(checkpointContainer, s"""docker checkpoint create developer-env-${developerEnvName} \\$$(date +%Y%m%d-%H%M%S)""") >>
       addFile("/etc/systemd/system/docker.service.d/override.conf", pure(
         s"""[Service]
 ExecStop=
@@ -197,9 +203,15 @@ rpm -ivh --force https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x8
   http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/g/glib-1.2.10-68.fc38.x86_64.rpm \
   https://dl.fedoraproject.org/pub/fedora/linux/releases/38/Everything/x86_64/os/Packages/c/criu-libs-3.17.1-5.fc38.x86_64.rpm \
   https://rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/c/criu-3.17.1-5.fc38.x86_64.rpm \
-  https://rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/n/nftables-1.0.5-2.fc38.x86_64.rpm
+  https://rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/n/nftables-1.0.5-2.fc38.x86_64.rpm \
+  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/i/iptables-utils-1.8.9-2.fc38.x86_64.rpm \
+  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/i/iptables-services-1.8.9-2.fc38.noarch.rpm \
+  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/i/iptables-libs-1.8.9-2.fc38.x86_64.rpm
 
 yum rm -y docker
+
+systemctl daemon-reload
+systemctl enable podman
 """)
 
   def podmanEcrLogin(region: String, accountId: String) = addUserDataLines(
@@ -208,10 +220,7 @@ yum rm -y docker
 
   def addPodmanCheckpointOnShutdown(name: String) = {
     val checkpointContainer = s"/usr/local/bin/podman_checkpoint_${name}"
-    addScript(checkpointContainer,
-      s"""#!/bin/bash
-podman container checkpoint ${name} 
-""") >>
+    addBashScript(checkpointContainer, s"""podman container checkpoint ${name} >>/var/log/podman_checkpoint_${name}.log 2>&1""") >>
       addFile("/etc/systemd/system/podman.service.d/override.conf", pure(
         s"""[Service]
 ExecStop=
@@ -223,7 +232,7 @@ ExecStop=${checkpointContainer}
 
   def podman(args: String*) =
     command("podman", args.toList)
-    
+
   def aws(args: String*) =
     command("aws", args.toList)
 
@@ -231,4 +240,63 @@ ExecStop=${checkpointContainer}
     s"podman container restore ${name} || podman run --name ${name} ${args.toList.mkString(" ")}"
   )
 
+  def enableDBus = {
+    val command = "export XDG_RUNTIME_DIR=/run/user/$(id -u)"
+    addUserDataLines(command) >>
+    addUserDataLines(s"""export DBUS_SESSION_BUS_ADDRESS="unix:path=$$XDG_RUNTIME_DIR/bus"""") >>
+      addUserDataLines(s"echo '${command}' >>/etc/bashrc")
+  }
+
+  def addPodmanContainerToSystemd(name: String, user: String = "root") =
+    addBashScript(s"/usr/local/bin/podman_checkpoint_${name}", s"""podman container checkpoint ${name} && echo successful checkpoint""") >>
+      addBashScript(s"/usr/local/bin/podman_restore_${name}", s"""
+status=$$(podman inspect --format="{{.State.Status}}" ${name})
+[ "\\$$status" == running ] || ( podman container restore ${name} && echo successful restore ) || ( podman start ${name} && echo restore unsuccessful, starting container )
+"""
+      ) >>
+      addUserDataLines(s"""container_id=$$(podman inspect --format="{{.Id}}" ${name})""") >>
+      addFile(s"${homeDirectory(user)}/.config/systemd/user/${name}.service", s"""
+[Unit]
+Description=Service for podman container ${name} generated by scala-cdktf
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/run/containers/storage
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=on-failure
+TimeoutStopSec=70
+ExecStart=/usr/local/bin/podman_restore_${name}
+ExecStop=/usr/local/bin/podman_checkpoint_${name}
+ExecStopPost=/usr/local/bin/podman_checkpoint_${name}
+PIDFile=/run/containers/storage/overlay-containers/$$container_id/userdata/conmon.pid
+Type=forking
+StandardOutput=append:/var/log/${name}.log
+StandardError=append:/var/log/${name}.log
+
+[Install]
+WantedBy=default.target
+"""
+      ) >>
+      enableDBus >>
+      addUserDataLines(s"loginctl enable-linger ${user}") >>
+      addUserDataLines(s"systemctl start user@0.service") >>
+      addUserDataLines(s"systemctl daemon-reload") >>
+      addUserDataLines(s"systemctl status systemd-logind") >>
+      addUserDataLines(s"systemctl status dbus.socket") >>
+      addUserDataLines(s"systemctl start dbus.socket") >>
+      addUserDataLines(s"systemctl status dbus") >>
+      addUserDataLines(s"systemctl start dbus") >>
+      addUserDataLines(s"ls -al /run/user/") >>
+      addUserDataLines(s"systemctl --user enable ${name}") >>
+      addUserDataLines(s"systemctl --user daemon-reload") >>
+      addUserDataLines(s"systemctl --user start ${name}")
+
+  def homeDirectory(user: String) =
+    user match {
+      case "root" =>
+        "/root"
+      case _ =>
+        s"/home/${user}"
+    }
 }
