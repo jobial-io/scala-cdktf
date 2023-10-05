@@ -20,8 +20,8 @@ case class TerraformStackBuildContext[D](
   stack: TerraformStack,
   app: App,
   data: D,
-  containerDefinitions: Map[String, ContainerDefinition] = Map(),
-  tags: Map[String, String] = Map()
+  containerDefinitions: Map[String, ContainerDefinition],
+  tags: Map[String, String]
 ) {
   def synth = IO(app.synth())
 
@@ -55,13 +55,9 @@ case class TerraformStackBuildContext[D](
 
 object TerraformStackBuildContext {
 
-  def apply[D](name: String, data: D, appContext: Map[String, _], tags: Map[String, String]) = {
-    val config = AppConfig
-      .builder
-      .context(appContext.asJava)
-      .build
+  def apply[D](name: String, data: D, config: AppConfig = AppConfig.builder.build, tags: Map[String, String] = Map()) = {
     val app = new App(config)
-    new TerraformStackBuildContext(name, new TerraformStack(app, name), app, data, tags = tags)
+    new TerraformStackBuildContext(name, new TerraformStack(app, name), app, data, Map(), tags)
   }
 
   val NameTag = "Name"
@@ -76,12 +72,17 @@ trait TerraformStackBuilderCore extends CdktfSupport {
   def createStack(name: String)(state: TerraformStackBuildState[Unit, Unit]) =
     createStack[Unit](name, ())(state)
 
-  def createStack[D](name: String, data: D, appContext: Map[String, _] = defaultAppContext, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
+  def createStack[D](name: String, data: D, config: AppConfig = defaultAppConfig, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
     for {
       _ <- generateCdktfConfig(name)
-      stack <- delay(state.run(TerraformStackBuildContext(name, data, appContext, tags)).value._1)
+      stack <- delay(state.run(TerraformStackBuildContext(name, data, config, tags)).value._1)
     } yield stack
 
+  def defaultAppConfig =
+    AppConfig
+    .builder
+//      .outdir()
+    .build
   def defaultAppContext = Map(
     "excludeStackIdFromLogicalIds" -> true,
     "allowSepCharsInLogicalIds" -> true

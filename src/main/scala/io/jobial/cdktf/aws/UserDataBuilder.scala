@@ -307,7 +307,6 @@ WantedBy=default.target
         s"/home/${user}"
     }
     
-  def dockerPrune =
-    docker("container", "prune") >>
-      docker("image", "prune")
+  def dockerPrune(limitInMb: Int = 10000) =
+    addUserDataLines(s"[ $$(df -m --output=avail / | tail -n 1) -gt ${limitInMb} ] || (docker container prune ; docker image prune)")
 }

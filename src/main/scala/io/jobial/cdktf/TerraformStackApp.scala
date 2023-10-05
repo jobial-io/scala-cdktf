@@ -54,6 +54,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "apply" :: (if (autoApprove) List("-auto-approve") else List())
         printLn(s"Deploying ${stack.name}") >>
+          terraform(stack, "init") >>
           terraform(stack, "plan") >>
           terraform(stack, args: _*)
       }
