@@ -21,7 +21,7 @@ trait CdktfSupport extends CatsUtils[IO] with ProcessManagement[IO] {
       _ <- printLn(s"Source location is $sourceLocation")
       workingDirectory = if (new File(sourceLocation).exists && new File(sourceLocation).isDirectory) sourceLocation.replaceAll("/target/classes/$", "") else s"${sys.props("java.io.tmpdir")}/$stackName"
       _ <- delay(new File(workingDirectory).mkdirs)
-      _ <- delay(System.setProperty("user.dir", workingDirectory))
+      _ <- delay(System.setProperty("user.dir", s"$workingDirectory/"))
       _ <- printLn(s"Working directory is set to $workingDirectory")
     } yield workingDirectory
 
