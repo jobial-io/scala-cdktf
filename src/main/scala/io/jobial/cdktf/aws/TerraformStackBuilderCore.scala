@@ -73,9 +73,14 @@ trait TerraformStackBuilderCore extends CdktfSupport {
   def createStack(name: String)(state: TerraformStackBuildState[Unit, Unit]) =
     createStack[Unit](name, ())(state)
 
-  def createStack[D](name: String, data: D, config: AppConfig = defaultAppConfig, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
+  def createStack[D](name: String, data: D, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]): IO[TerraformStackBuildContext[D]] =
     for {
       _ <- setWorkingDirectory(name)
+      stack <- createStack[D](name, data, defaultAppConfig, tags)(state)
+    } yield stack
+
+  def createStack[D](name: String, data: D, config: AppConfig, tags: Map[String, String])(state: TerraformStackBuildState[D, Unit]): IO[TerraformStackBuildContext[D]] =
+    for {
       _ <- generateCdktfConfig(name)
       stack <- delay(state.run(TerraformStackBuildContext(name, data, config, tags)).value._1)
     } yield stack
