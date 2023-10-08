@@ -6,6 +6,7 @@ import com.hashicorp.cdktf.App
 import com.hashicorp.cdktf.AppConfig
 import com.hashicorp.cdktf.S3Backend
 import com.hashicorp.cdktf.TerraformStack
+import com.hashicorp.cdktf.Testing.app
 import com.hashicorp.cdktf.providers.aws.provider.AwsProvider
 import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfNameTag
 import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfTimestampTag
@@ -74,6 +75,7 @@ trait TerraformStackBuilderCore extends CdktfSupport {
 
   def createStack[D](name: String, data: D, config: AppConfig = defaultAppConfig, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]) =
     for {
+      _ <- setWorkingDirectory(name)
       _ <- generateCdktfConfig(name)
       stack <- delay(state.run(TerraformStackBuildContext(name, data, config, tags)).value._1)
     } yield stack
@@ -81,8 +83,9 @@ trait TerraformStackBuilderCore extends CdktfSupport {
   def defaultAppConfig =
     AppConfig
     .builder
-//      .outdir()
+    .outdir(outputDirectory)
     .build
+    
   def defaultAppContext = Map(
     "excludeStackIdFromLogicalIds" -> true,
     "allowSepCharsInLogicalIds" -> true

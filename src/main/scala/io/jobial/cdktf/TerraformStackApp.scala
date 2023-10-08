@@ -30,7 +30,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
     } yield stack
 
   def terraformContext(context: TerraformStackBuildContext[D]) = ProcessContext(
-    directory = Some(s"./cdktf.out/stacks/${context.name}"),
+    directory = Some(s"${context.app.getOutdir}/stacks/${context.name}"),
     inheritIO = true
   )
 
@@ -72,6 +72,8 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "destroy" :: (if (autoApprove) List("-auto-approve") else List())
         printLn(s"Destroying ${stack.name}") >>
+          terraform(stack, "init") >>
+          terraform(stack, "plan") >>
           terraform(stack, args: _*)
       }
     } yield r
