@@ -190,24 +190,10 @@ ExecStop=${checkpointContainer}
 
   def installPodman = addUserDataLines("""
 yum install -y yajl docker criu
-rpm -ivh --force https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x86_64/Packages/p/podman-4.6.1-1.fc38.x86_64.rpm \
-  https://rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/c/catatonit-0.1.7-14.fc38.x86_64.rpm \
-  http://www.rpmfind.net/linux/fedora/linux/updates/37/Everything/x86_64/Packages/c/conmon-2.1.7-2.fc37.x86_64.rpm \
-  https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x86_64/Packages/c/containers-common-extra-1-89.fc38.noarch.rpm \
-  https://dl.fedoraproject.org/pub/fedora/linux/releases/38/Everything/x86_64/os/Packages/s/shadow-utils-subid-4.13-6.fc38.x86_64.rpm \
-  https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x86_64/Packages/n/netavark-1.7.0-1.fc38.x86_64.rpm \
-  https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x86_64/Packages/c/containers-common-1-89.fc38.noarch.rpm \
-  https://rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/c/crun-1.8.3-2.fc38.x86_64.rpm \
-  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/s/slirp4netns-1.2.0-12.fc38.x86_64.rpm \
-  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/l/libslirp-4.7.0-3.fc38.x86_64.rpm \
-  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/g/glib-1.2.10-68.fc38.x86_64.rpm \
-  https://dl.fedoraproject.org/pub/fedora/linux/releases/38/Everything/x86_64/os/Packages/c/criu-libs-3.17.1-5.fc38.x86_64.rpm \
-  https://rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/c/criu-3.17.1-5.fc38.x86_64.rpm \
-  https://rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/n/nftables-1.0.5-2.fc38.x86_64.rpm \
-  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/i/iptables-utils-1.8.9-2.fc38.x86_64.rpm \
-  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/i/iptables-services-1.8.9-2.fc38.noarch.rpm \
-  http://www.rpmfind.net/linux/fedora/linux/releases/38/Everything/x86_64/os/Packages/i/iptables-libs-1.8.9-2.fc38.x86_64.rpm
+yum-config-manager --add-repo https://rpmfind.net/linux/fedora/linux/updates/37/Everything/x86_64/
+yum-config-manager --add-repo https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x86_64/
 
+yum install --nogpgcheck podman
 yum rm -y docker
 
 systemctl daemon-reload

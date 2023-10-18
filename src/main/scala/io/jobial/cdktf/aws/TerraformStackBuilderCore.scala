@@ -6,15 +6,12 @@ import com.hashicorp.cdktf.App
 import com.hashicorp.cdktf.AppConfig
 import com.hashicorp.cdktf.S3Backend
 import com.hashicorp.cdktf.TerraformStack
-import com.hashicorp.cdktf.Testing.app
 import com.hashicorp.cdktf.providers.aws.provider.AwsProvider
 import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfNameTag
 import io.jobial.cdktf.aws.TerraformStackBuildContext.CdktfTimestampTag
-import io.jobial.cdktf.aws.TerraformStackBuildContext.NameTag
 import software.amazon.jsii.Builder
 
 import java.time.Instant.now
-import scala.collection.JavaConverters._
 
 case class TerraformStackBuildContext[D](
   name: String,
@@ -69,7 +66,7 @@ object TerraformStackBuildContext {
 trait TerraformStackBuilderCore extends CdktfSupport {
 
   type TerraformStackBuildState[D, A] = State[TerraformStackBuildContext[D], A]
-
+  
   def createStack(name: String)(state: TerraformStackBuildState[Unit, Unit]) =
     createStack[Unit](name, ())(state)
 
