@@ -189,7 +189,7 @@ ExecStop=${checkpointContainer}
   }
 
   def installPodman = addUserDataLines("""
-yum install -y yajl docker criu
+yum install -y yajl docker criu yum-utils
 yum-config-manager --add-repo https://rpmfind.net/linux/fedora/linux/updates/37/Everything/x86_64/
 yum-config-manager --add-repo https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x86_64/
 
