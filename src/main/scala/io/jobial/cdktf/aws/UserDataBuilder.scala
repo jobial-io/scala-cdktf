@@ -193,7 +193,7 @@ yum install -y yajl docker criu
 yum-config-manager --add-repo https://rpmfind.net/linux/fedora/linux/updates/37/Everything/x86_64/
 yum-config-manager --add-repo https://rpmfind.net/linux/fedora/linux/updates/38/Everything/x86_64/
 
-yum install --nogpgcheck podman
+yum install -y --nogpgcheck podman
 yum rm -y docker
 
 systemctl daemon-reload
