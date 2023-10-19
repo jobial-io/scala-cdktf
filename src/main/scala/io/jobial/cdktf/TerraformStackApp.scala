@@ -11,16 +11,13 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def run(stack: IO[TerraformStackBuildContext[D]]) =
     command.printStackTraceOnException(true) {
       for {
-        deploy <- runDeploy(stack)
-        destroy <- runDestroy(stack)
-        redeploy <- runRedeploy(stack)
-        plan <- runPlan(stack)
-      } yield
-        deploy orElse
-          destroy orElse
-          redeploy orElse
-          plan orElse
-          runStack(stack)
+        subcommands <- subcommands(
+          runDeploy(stack),
+          runDestroy(stack),
+          runRedeploy(stack),
+          runPlan(stack)
+        )
+      } yield subcommands orElse runStack(stack)
     }
 
   def runStack(stack: IO[TerraformStackBuildContext[D]]) =
@@ -40,13 +37,17 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def runTerraformCommand(stack: TerraformStackBuildContext[D])(f: ProcessContext => IO[Any]) =
     f(terraformContext(stack))
 
-  val autoApproveOpt = opt[Boolean]("auto-approve").default(true)
+  val autoApproveOpt = opt[Boolean]("auto-approve")
+    .default(true)
+    .description("Auto-approve terraform actions")
 
-  def runDeploy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("deploy") {
-    for {
-      autoApprove <- autoApproveOpt
-    } yield deploy(stack, autoApprove)
-  }
+  def runDeploy(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None) =
+    subcommand("deploy")
+      .description(description.getOrElse("Deploy terraform stack")) {
+        for {
+          autoApprove <- autoApproveOpt
+        } yield deploy(stack, autoApprove)
+      }
 
   def deploy(stack: IO[TerraformStackBuildContext[D]], autoApprove: Boolean) =
     for {
@@ -60,11 +61,13 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       }
     } yield r
 
-  def runDestroy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("destroy") {
-    for {
-      autoApprove <- autoApproveOpt
-    } yield destroy(stack, autoApprove)
-  }
+  def runDestroy(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None) =
+    subcommand("destroy")
+      .description(description.getOrElse("Destroy terraform stack")) {
+        for {
+          autoApprove <- autoApproveOpt
+        } yield destroy(stack, autoApprove)
+      }
 
   def destroy(stack: IO[TerraformStackBuildContext[D]], autoApprove: Boolean) =
     for {
@@ -78,11 +81,13 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       }
     } yield r
 
-  def runRedeploy(stack: IO[TerraformStackBuildContext[D]]) = subcommand("redeploy") {
-    for {
-      autoApprove <- autoApproveOpt
-    } yield destroy(stack, autoApprove) >> deploy(stack, autoApprove)
-  }
+  def runRedeploy(stack: IO[TerraformStackBuildContext[D]]) =
+    subcommand("redeploy")
+      .description("Destroy and redeploy terraform stack") {
+        for {
+          autoApprove <- autoApproveOpt
+        } yield destroy(stack, autoApprove) >> deploy(stack, autoApprove)
+      }
 
   def runPlan(stack: IO[TerraformStackBuildContext[D]]) = subcommand("plan") {
     for {
