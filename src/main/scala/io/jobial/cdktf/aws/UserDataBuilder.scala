@@ -5,6 +5,7 @@ import cats.effect.Concurrent
 import cats.effect.IO
 import cats.effect.Timer
 import cats.implicits.catsSyntaxFlatMapOps
+import cats.implicits.catsSyntaxFlatten
 import io.jobial.scase.aws.client.S3Client
 import io.jobial.sprint.process.ProcessContext
 import io.jobial.sprint.util.CatsUtils
@@ -20,7 +21,7 @@ trait UserDataBuilder extends CatsUtils[IO] with S3Client[IO] {
   type UserData = State[IO[String], IO[String]]
 
   def evaluate(data: UserData) =
-    data.run(pure("")).map(_._1).value
+    delay(data.run(pure("")).map(_._1).value).flatten
 
   def userData(data: UserData) =
     evaluate(shebang >> data)
