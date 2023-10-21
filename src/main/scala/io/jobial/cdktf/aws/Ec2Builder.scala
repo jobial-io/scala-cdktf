@@ -1,7 +1,5 @@
 package io.jobial.cdktf.aws
 
-import cats.Eval
-import cats.data.IndexedStateT
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2Fleet
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfig
 import com.hashicorp.cdktf.providers.aws.ec2_fleet.Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification
