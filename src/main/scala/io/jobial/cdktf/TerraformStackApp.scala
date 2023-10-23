@@ -55,15 +55,16 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "apply" :: (if (autoApprove) List("-auto-approve") else List())
-        printLn(s"Deploying ${stack.name}") >>
-          terraform(stack, "init") >>
-          terraform(stack, "plan") >>
-          terraform(stack, args: _*) >>
-          afterDeploy(stack)
+        (
+          printLn(s"Deploying ${stack.name}") >>
+            terraform(stack, "init") >>
+            terraform(stack, "plan") >>
+            terraform(stack, args: _*)
+          ).guarantee(afterDeploy(stack))
       }
     } yield r
 
-  def afterDeploy(context: TerraformStackBuildContext[D]): IO[_] = unit
+  def afterDeploy(context: TerraformStackBuildContext[D]) = unit
 
   def runDestroy(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None) =
     subcommand("destroy")
@@ -78,15 +79,16 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       stack <- runStack(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "destroy" :: (if (autoApprove) List("-auto-approve") else List())
-        printLn(s"Destroying ${stack.name}") >>
-          terraform(stack, "init") >>
-          terraform(stack, "plan") >>
-          terraform(stack, args: _*) >>
-          afterDestroy(stack)
+        (
+          printLn(s"Destroying ${stack.name}") >>
+            terraform(stack, "init") >>
+            terraform(stack, "plan") >>
+            terraform(stack, args: _*)
+          ).guarantee(afterDestroy(stack))
       }
     } yield r
 
-  def afterDestroy(context: TerraformStackBuildContext[D]): IO[_] = unit
+  def afterDestroy(context: TerraformStackBuildContext[D]) = unit
 
   def runRedeploy(stack: IO[TerraformStackBuildContext[D]]) =
     subcommand("redeploy")
