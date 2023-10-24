@@ -90,22 +90,24 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
 
   def afterDestroy(context: TerraformStackBuildContext[D]) = unit
 
-  def runRedeploy(stack: IO[TerraformStackBuildContext[D]]) =
+  def runRedeploy(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None) =
     subcommand("redeploy")
-      .description("Destroy and redeploy terraform stack") {
+      .description(description.getOrElse("Destroy and redeploy terraform stack")) {
         for {
           autoApprove <- autoApproveOpt
         } yield destroy(stack, autoApprove) >> deploy(stack, autoApprove)
       }
 
-  def runPlan(stack: IO[TerraformStackBuildContext[D]]) = subcommand("plan") {
-    for {
-      stack <- runStack(stack)
-      r <- runTerraformCommand(stack) { implicit processContext =>
-        printLn(s"Planning ${stack.name}") >>
-          terraform(stack, "plan")
+  def runPlan(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None) =
+    subcommand("plan")
+      .description(description.getOrElse("Run terraform plan for the stack")) {
+        for {
+          stack <- runStack(stack)
+          r <- runTerraformCommand(stack) { implicit processContext =>
+            printLn(s"Planning ${stack.name}") >>
+              terraform(stack, "plan")
+          }
+        } yield r
       }
-    } yield r
-  }
 
 }

@@ -19,7 +19,7 @@ trait IamBuilder extends TerraformStackBuilderCore {
     assumeRolePolicy: Option[Json] = None
   ) = buildAndAddResource[D, IamRole] { context =>
     val builder = IamRole.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-iam-role")
       .managedPolicyArns(managedPolicyArns.asJava)
       .inlinePolicy(inlinePolicy.asJava)
     assumeRolePolicy.map(p => builder.assumeRolePolicy(p.noSpaces))
@@ -47,7 +47,7 @@ trait IamBuilder extends TerraformStackBuilderCore {
 
   def addPolicy[D](name: String, policy: Json) = buildAndAddResource[D, IamPolicy] { context =>
     IamPolicy.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-iam-policy")
       .name(name)
       .policy(policy.noSpaces)
   }

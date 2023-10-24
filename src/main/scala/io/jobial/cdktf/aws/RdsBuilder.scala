@@ -19,7 +19,7 @@ trait RdsBuilder extends IamBuilder {
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, RdsCluster] { context =>
     val b = RdsCluster.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-rds-cluster")
       .clusterIdentifier(name)
       .engine(engine)
       .availabilityZones(availabilityZones.asJava)

@@ -64,7 +64,7 @@ trait Ec2Builder extends IamBuilder {
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, Instance] { context =>
     val b = Instance.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-ec2-instance")
       .ami(ami)
       .rootBlockDevice(
         InstanceRootBlockDevice
@@ -184,7 +184,7 @@ trait Ec2Builder extends IamBuilder {
     tags: Map[String, String] = Map()
   ): TerraformStackBuildState[D, SpotFleetRequest] = buildAndAddResource[D, SpotFleetRequest]({ context =>
     val b = SpotFleetRequest.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-ec2-spot-fleet-request")
       .iamFleetRole(iamFleetRole)
       .fleetType(fleetType)
       .allocationStrategy(allocationStrategy)
@@ -277,7 +277,7 @@ trait Ec2Builder extends IamBuilder {
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, LaunchTemplate] { context =>
     val b = LaunchTemplate.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-ec2-launch-template")
       .imageId(imageId)
       .networkInterfaces(List(
         LaunchTemplateNetworkInterfaces.builder
@@ -311,7 +311,7 @@ trait Ec2Builder extends IamBuilder {
     role: IamRole
   ) = buildAndAddResource[D, IamInstanceProfile] { context =>
     IamInstanceProfile.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-iam-instance-profile")
       .role(role.getName)
   }
 
@@ -499,7 +499,7 @@ trait Ec2Builder extends IamBuilder {
     tags: Map[String, String] = Map()
   ): TerraformStackBuildState[D, Ec2Fleet] = buildAndAddResource { context =>
     val b = Ec2Fleet.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-ec2-fleet")
       .launchTemplateConfig(launchTemplateConfigs.asJava)
       .spotOptions(
         Ec2FleetSpotOptions

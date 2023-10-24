@@ -25,7 +25,7 @@ trait EcsBuilder extends IamBuilder {
     tags: Map[String, String]
   ): TerraformStackBuildState[D, EcsCluster] = buildAndAddResource[D, EcsCluster] { context =>
     val b = EcsCluster.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-ecs-cluster")
       .name(name)
       .tags(context.mergeTags(name, tags).asJava)
     configuration.map(b.configuration)
@@ -48,7 +48,7 @@ trait EcsBuilder extends IamBuilder {
     capacityProviders: List[String] = List("FARGATE")
   ) = buildAndAddResource[D, EcsClusterCapacityProviders] { context =>
     EcsClusterCapacityProviders.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-ecs-cluster-capacity-providers")
       .clusterName(clusterName)
       .capacityProviders(capacityProviders.asJava)
   }
@@ -77,7 +77,7 @@ trait EcsBuilder extends IamBuilder {
   ) = buildAndAddResource[D, EcsTaskDefinition] { context =>
     val definitionsWithDependencies = context.containerDefinitionsWithTransitiveDependencies(containerDefinitions)
     EcsTaskDefinition.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-ecs-task-definition")
       .family(name)
       .containerDefinitions(awslogsStreamPrefixOverride.map(prefix => definitionsWithDependencies.map(_.setAwslogsStreamPrefix(prefix))).getOrElse(definitionsWithDependencies).map(_.asJson).noSpaces)
       .taskRoleArn(taskRole.getArn)
@@ -100,7 +100,7 @@ trait EcsBuilder extends IamBuilder {
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, EcsService] { context =>
     EcsService.Builder
-      .create(context.stack, name)
+      .create(context.stack, s"$name-ecs-service")
       .name(name)
       .enableExecuteCommand(enableExecuteCommand)
       .taskDefinition(taskDefinition.getId)
@@ -126,7 +126,7 @@ trait EcsBuilder extends IamBuilder {
     managedPolicyArns: List[String] = List("arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"),
     assumeRolePolicy: Json = DefaultAssumeRolePolicy
   ) = addRole[D](
-    name,
+    s"$name-task-execution",
     managedPolicyArns = managedPolicyArns,
     assumeRolePolicy = Some(assumeRolePolicy)
   )
@@ -136,7 +136,7 @@ trait EcsBuilder extends IamBuilder {
     managedPolicyArns: List[String],
     assumeRolePolicy: Json = DefaultAssumeRolePolicy
   ) = addRole[D](
-    name,
+    s"$name-task",
     assumeRolePolicy = Some(assumeRolePolicy),
     managedPolicyArns = managedPolicyArns
   )
