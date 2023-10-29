@@ -11,6 +11,7 @@ import io.jobial.sprint.process.ProcessContext
 import io.jobial.sprint.util.CatsUtils
 import org.apache.commons.io.IOUtils
 
+import java.io.File
 import java.io.FileInputStream
 import java.nio.file.Paths
 import java.util.UUID.randomUUID
@@ -296,4 +297,5 @@ WantedBy=default.target
     
   def dockerPrune(limitInMb: Int = 10000) =
     addUserDataLines(s"[ $$(df -m --output=avail / | tail -n 1) -gt ${limitInMb} ] || (docker container prune ; docker image prune)")
+
 }
