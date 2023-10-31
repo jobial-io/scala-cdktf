@@ -298,4 +298,10 @@ WantedBy=default.target
   def dockerPrune(limitInMb: Int = 10000) =
     addUserDataLines(s"[ $$(df -m --output=avail / | tail -n 1) -gt ${limitInMb} ] || (docker container prune ; docker image prune)")
 
+  def addSwap(sizeInGB: Int, name: String = "/swap") =
+    addUserDataLines(s"fallocate -l ${sizeInGB}G ${name}") >>
+      chmod("600", name) >>
+      addUserDataLines(s"mkswap ${name}") >>
+      addUserDataLines(s"swapon ${name}") >>
+      addUserDataLines(s"echo '${name} swap swap defaults 0 0' >>/etc/fstab")
 }
