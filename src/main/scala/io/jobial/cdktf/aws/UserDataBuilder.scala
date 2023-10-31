@@ -231,7 +231,7 @@ ExecStop=${checkpointContainer}
   def enableDBus = {
     val command = "export XDG_RUNTIME_DIR=/run/user/$(id -u)"
     addUserDataLines(command) >>
-    addUserDataLines(s"""export DBUS_SESSION_BUS_ADDRESS="unix:path=$$XDG_RUNTIME_DIR/bus"""") >>
+      addUserDataLines(s"""export DBUS_SESSION_BUS_ADDRESS="unix:path=$$XDG_RUNTIME_DIR/bus"""") >>
       addUserDataLines(s"echo '${command}' >>/etc/bashrc")
   }
 
@@ -294,14 +294,16 @@ WantedBy=default.target
       case _ =>
         s"/home/${user}"
     }
-    
+
   def dockerPrune(limitInMb: Int = 10000) =
     addUserDataLines(s"[ $$(df -m --output=avail / | tail -n 1) -gt ${limitInMb} ] || (docker container prune ; docker image prune)")
 
-  def addSwap(sizeInGB: Int, name: String = "/swap") =
-    addUserDataLines(s"fallocate -l ${sizeInGB}G ${name}") >>
+  def addSwap(sizeInGB: Option[Int] = None, name: String = "/swap") = {
+    val size = sizeInGB.map(_.toString).getOrElse("$(($(free -g | sed 1d | awk '{print $2}' | head -n 1) + 3))")
+    addUserDataLines(s"fallocate -l ${size}G ${name}") >>
       chmod("600", name) >>
       addUserDataLines(s"mkswap ${name}") >>
       addUserDataLines(s"swapon ${name}") >>
       addUserDataLines(s"echo '${name} swap swap defaults 0 0' >>/etc/fstab")
+  }
 }
