@@ -35,7 +35,7 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
       runProcessAndWait(List("ssh", "-t", s"ec2-user@${hostName}", "bash", "-c", s"'[ -e ${hostPath} ] || ( mkdir -p ${parentPath(hostPath)}; cat > ${hostPath}; chmod 600 ${hostPath} )'"))
     }
   }.handleErrorWith { _ =>
-    delay(print(".")) >>
+    printStr(".") >>
       copyFileToHost(path, hostName, hostPath)
   }
 
@@ -46,7 +46,7 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
         runProcessAndWait(List("rsync", "-av", path, s"ec2-user@$hostName:$hostPath"))
     }
   }.handleErrorWith { _ =>
-    delay(print(".")) >>
+    printStr(".") >>
       rsyncToHost(path, hostName, hostPath)
   }
 

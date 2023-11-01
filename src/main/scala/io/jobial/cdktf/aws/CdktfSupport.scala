@@ -14,15 +14,12 @@ trait CdktfSupport extends CatsUtils[IO] with ProcessManagement[IO] {
 
   def setWorkingDirectory(stackName: String) =
     for {
-      //sourceLocation <- pure(getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath)
-      //_ <- printLn(s"Source location is $sourceLocation")
-      //      workingDirectory = if (new File(sourceLocation).exists && new File(sourceLocation).isDirectory) sourceLocation.replaceAll("/target/classes/$", "") else s"${sys.props("java.io.tmpdir")}/$stackName"
       workingDirectory <- pure(s"${tmpDir}/$stackName")
-      _ <- delay( new File(workingDirectory).mkdirs)
+      _ <- delay(new File(workingDirectory).mkdirs)
       _ <- delay(System.setProperty("user.dir", s"$workingDirectory/"))
       _ <- printLn(s"Working directory is set to $workingDirectory")
     } yield workingDirectory
-    
+
   def tmpDir = s"${sys.props("java.io.tmpdir")}/${sys.props("user.name")}"
 
   def workingDirectory = new File(sys.props("user.dir")).getCanonicalPath
