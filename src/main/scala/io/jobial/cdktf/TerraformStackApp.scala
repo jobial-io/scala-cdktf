@@ -53,6 +53,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def deploy(stack: IO[TerraformStackBuildContext[D]], autoApprove: Boolean) =
     for {
       stack <- runStack(stack)
+      _ <- beforeDeploy(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "apply" :: (if (autoApprove) List("-auto-approve") else List())
         (
@@ -63,6 +64,8 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           ).guarantee(afterDeploy(stack))
       }
     } yield r
+
+  def beforeDeploy(context: TerraformStackBuildContext[D]) = unit
 
   def afterDeploy(context: TerraformStackBuildContext[D]) = unit
 
@@ -77,6 +80,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def destroy(stack: IO[TerraformStackBuildContext[D]], autoApprove: Boolean) =
     for {
       stack <- runStack(stack)
+      _ <- beforeDestroy(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "destroy" :: (if (autoApprove) List("-auto-approve") else List())
         (
@@ -87,6 +91,8 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           ).guarantee(afterDestroy(stack))
       }
     } yield r
+
+  def beforeDestroy(context: TerraformStackBuildContext[D]) = unit
 
   def afterDestroy(context: TerraformStackBuildContext[D]) = unit
 
