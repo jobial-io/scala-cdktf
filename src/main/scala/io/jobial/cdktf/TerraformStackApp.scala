@@ -1,7 +1,6 @@
 package io.jobial.cdktf
 
 import cats.effect.IO
-import cats.effect.IO
 import io.jobial.cdktf.aws.TerraformStackBuildContext
 import io.jobial.sclap.CommandLineApp
 import io.jobial.sprint.process.ProcessContext
@@ -38,21 +37,30 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def runTerraformCommand(stack: TerraformStackBuildContext[D])(f: ProcessContext => IO[Any]) =
     f(terraformContext(stack))
 
-  val autoApproveOpt = opt[Boolean]("auto-approve")
+  lazy val autoApproveOpt = opt[Boolean]("auto-approve")
     .default(true)
     .description("Auto-approve terraform actions")
 
-  def runDeploy(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None) =
+  def runDeploy(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None, destroyFirst: Boolean = false) =
     subcommand("deploy")
       .description(description.getOrElse("Deploy terraform stack")) {
-        for {
-          autoApprove <- autoApproveOpt
-        } yield deploy(stack, autoApprove)
+        runDeployCommandLine(stack, destroyFirst)
       }
 
-  def deploy(stack: IO[TerraformStackBuildContext[D]], autoApprove: Boolean) =
+  def runDeployCommandLine(stack: IO[TerraformStackBuildContext[D]], destroyFirst: Boolean) =
+    for {
+      autoApprove <- autoApproveOpt
+    } yield deploy(stack, autoApprove, destroyFirst)
+
+  def deploy(stack: IO[TerraformStackBuildContext[D]], autoApprove: Boolean, destroyFirst: Boolean): IO[Any] =
     for {
       stack <- runStack(stack)
+      r <- deploy(stack, autoApprove, destroyFirst)
+    } yield r
+
+  def deploy(stack: TerraformStackBuildContext[D], autoApprove: Boolean, destroyFirst: Boolean): IO[Any] =
+    for {
+      _ <- whenA(destroyFirst)(destroy(pure(stack), autoApprove))
       _ <- beforeDeploy(stack)
       r <- runTerraformCommand(stack) { implicit processContext =>
         val args = "apply" :: (if (autoApprove) List("-auto-approve") else List())
@@ -99,9 +107,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def runRedeploy(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None) =
     subcommand("redeploy")
       .description(description.getOrElse("Destroy and redeploy terraform stack")) {
-        for {
-          autoApprove <- autoApproveOpt
-        } yield destroy(stack, autoApprove) >> deploy(stack, autoApprove)
+        runDeployCommandLine(stack, true)
       }
 
   def runPlan(stack: IO[TerraformStackBuildContext[D]], description: Option[String] = None) =
