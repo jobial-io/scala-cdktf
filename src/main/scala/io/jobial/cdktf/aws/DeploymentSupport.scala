@@ -24,13 +24,13 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
     if (path.startsWith("~/")) props("user.home") + "/" + path.substring(2)
     else path
 
-  def checkHostPort(hostName: String)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) = {
+  def checkHostPort(hostName: String, port: Int)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) = {
     implicit val processContext = ProcessContext(inheritIO = false)
-    runProcessAndWait(List("nc", "-zv", hostName, "22"))
+    runProcessAndWait(List("nc", "-zv", hostName, port.toString))
   }
 
   def copyFileToHost(path: String, hostName: String, hostPath: String)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): IO[_] = {
-    checkHostPort(hostName) >> {
+    checkHostPort(hostName, 22) >> {
       implicit val processContext = ProcessContext(inputFilename = Some(expandHome(path)), inheritIO = false)
       runProcessAndWait(List("ssh", "-t", s"ec2-user@${hostName}", "bash", "-c", s"'[ -e ${hostPath} ] || ( mkdir -p ${parentPath(hostPath)}; cat > ${hostPath}; chmod 600 ${hostPath} )'"))
     }
@@ -40,7 +40,7 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
   }
 
   def rsyncToHost(path: String, hostName: String, hostPath: String)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): IO[_] = {
-    checkHostPort(hostName) >> {
+    checkHostPort(hostName, 22) >> {
       implicit val processContext = ProcessContext(inheritIO = true)
       runProcessAndWait(List("ssh", s"ec2-user@$hostName", "mkdir", "-p", hostPath)) >>
         runProcessAndWait(List("rsync", "-av", path, s"ec2-user@$hostName:$hostPath"))
