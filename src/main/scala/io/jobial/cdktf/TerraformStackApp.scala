@@ -32,7 +32,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   )
 
   def terraform(stack: TerraformStackBuildContext[D], args: String*)(implicit processContext: ProcessContext) =
-    runProcessAndWait("terraform" +: args)
+    runProcessAndWait("terraform" :: args.toList)
 
   def runTerraformCommand(stack: TerraformStackBuildContext[D])(f: ProcessContext => IO[Any]) =
     f(terraformContext(stack))
