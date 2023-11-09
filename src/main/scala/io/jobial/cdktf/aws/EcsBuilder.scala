@@ -39,7 +39,7 @@ trait EcsBuilder extends IamBuilder {
   ): TerraformStackBuildState[D, EcsCluster] =
     for {
       cluster <- addCluster(name, None, tags)
-      capacityProviders <- addClusterCapacityProviders(s"$name-capacity-providers", name, capacityProviders)
+      capacityProviders <- addClusterCapacityProviders(s"$name-capacity-providers", s"$name", capacityProviders)
     } yield cluster
 
   def addClusterCapacityProviders[D](

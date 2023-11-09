@@ -2,6 +2,7 @@ package io.jobial.cdktf.aws
 
 import cats.data.State
 import cats.effect.IO
+import cats.implicits.catsSyntaxFlatMapOps
 import com.hashicorp.cdktf.App
 import com.hashicorp.cdktf.AppConfig
 import com.hashicorp.cdktf.S3Backend
@@ -66,28 +67,24 @@ object TerraformStackBuildContext {
 trait TerraformStackBuilderCore extends CdktfSupport {
 
   type TerraformStackBuildState[D, A] = State[TerraformStackBuildContext[D], A]
-  
+
   def createStack(name: String)(state: TerraformStackBuildState[Unit, Unit]) =
     createStack[Unit](name, ())(state)
 
   def createStack[D](name: String, data: D, tags: Map[String, String] = Map())(state: TerraformStackBuildState[D, Unit]): IO[TerraformStackBuildContext[D]] =
-    for {
-      _ <- setWorkingDirectory(name)
-      stack <- createStack[D](name, data, defaultAppConfig, tags)(state)
-    } yield stack
+    setWorkingDirectory(name) >>
+      createStack[D](name, data, defaultAppConfig, tags)(state)
 
   def createStack[D](name: String, data: D, config: AppConfig, tags: Map[String, String])(state: TerraformStackBuildState[D, Unit]): IO[TerraformStackBuildContext[D]] =
-    for {
-      _ <- generateCdktfConfig(name)
-      stack <- delay(state.run(TerraformStackBuildContext(name, data, config, tags)).value._1)
-    } yield stack
+    generateCdktfConfig(name) >>
+      delay(state.run(TerraformStackBuildContext(name, data, config, tags)).value._1)
 
   def defaultAppConfig =
     AppConfig
-    .builder
-    .outdir(outputDirectory)
-    .build
-    
+      .builder
+      .outdir(outputDirectory)
+      .build
+
   def defaultAppContext = Map(
     "excludeStackIdFromLogicalIds" -> true,
     "allowSepCharsInLogicalIds" -> true

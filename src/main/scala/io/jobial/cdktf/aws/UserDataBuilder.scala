@@ -11,7 +11,6 @@ import io.jobial.sprint.process.ProcessContext
 import io.jobial.sprint.util.CatsUtils
 import org.apache.commons.io.IOUtils
 
-import java.io.File
 import java.io.FileInputStream
 import java.nio.file.Paths
 import java.util.UUID.randomUUID
@@ -132,7 +131,7 @@ systemctl status docker.service
 
   def addRoute53Record(name: String, hostedZone: String, description: String, ttl: Int = 30) = addUserData {
     """
-# create or update the given alias record and associate with the address of this instance
+# create or update the given alias record and associate it with the address of this instance
 function update_alias_record() {
     hosted_zone_name="$1"
     record_name="$2"
