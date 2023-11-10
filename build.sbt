@@ -48,12 +48,12 @@ lazy val ScalatestVersion = "3.2.3"
 lazy val SourcecodeVersion = "0.2.3"
 lazy val CdktfProviderAwsVersion = "16.0.5"
 lazy val SclapVersion = "1.3.9"
-lazy val SprintVersion = "0.1.0"
+lazy val SprintVersion = "0.1.1"
 lazy val CirceVersion = "0.12.0-M3"
 lazy val LogbackVersion = "1.2.3"
 lazy val ShapelessVersion = "2.3.3"
 lazy val ProguardVersion = "7.2.2"
-lazy val ScaseVersion = "1.3.16"
+lazy val ScaseVersion = "1.3.18"
 
 lazy val root: Project = project
   .in(file("."))
