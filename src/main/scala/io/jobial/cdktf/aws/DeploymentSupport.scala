@@ -10,6 +10,8 @@ import io.jobial.sprint.util.CatsUtils
 
 import java.io.File
 import java.nio.file.Paths
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 import scala.sys.props
 
 trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
@@ -29,17 +31,18 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
     runProcessAndWait(List("nc", "-zv", hostName, port.toString))
   }
 
-  def copyFileToHost(path: String, hostName: String, hostPath: String)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): IO[_] = {
+  def copyFileToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): IO[_] = {
     checkHostPort(hostName, 22) >> {
       implicit val processContext = ProcessContext(inputFilename = Some(expandHome(path)), inheritIO = false)
       runProcessAndWait(List("ssh", "-t", s"ec2-user@${hostName}", "bash", "-c", s"'[ -e ${hostPath} ] || ( mkdir -p ${parentPath(hostPath)}; cat > ${hostPath}; chmod 600 ${hostPath} )'"))
     }
   }.handleErrorWith { _ =>
     printStr(".") >>
+      sleep(delay) >>
       copyFileToHost(path, hostName, hostPath)
   }
 
-  def rsyncToHost(path: String, hostName: String, hostPath: String)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): IO[_] = {
+  def rsyncToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): IO[_] = {
     checkHostPort(hostName, 22) >> {
       implicit val processContext = ProcessContext(inheritIO = true)
       runProcessAndWait(List("ssh", s"ec2-user@$hostName", "mkdir", "-p", hostPath)) >>
@@ -47,6 +50,7 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
     }
   }.handleErrorWith { _ =>
     printStr(".") >>
+      sleep(delay) >>
       rsyncToHost(path, hostName, hostPath)
   }
 
