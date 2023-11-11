@@ -31,27 +31,27 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
     runProcessAndWait(List("nc", "-zv", hostName, port.toString))
   }
 
-  def copyFileToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): IO[_] = {
-    checkHostPort(hostName, 22) >> {
+  def retryForHost[T](hostName: String, port: Int = 22, delay: FiniteDuration = 2.seconds)(f: IO[T])(implicit concurrent: Concurrent[IO], timer: Timer[IO]): IO[T] = {
+    checkHostPort(hostName, port) >> f
+  }.handleErrorWith { _ =>
+    printStr(".") >>
+      sleep(delay) >>
+      retryForHost(hostName, port, delay)(f)
+  }
+
+  def copyFileToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) =
+    retryForHost(hostName) {
       implicit val processContext = ProcessContext(inputFilename = Some(expandHome(path)), inheritIO = false)
       runProcessAndWait(List("ssh", "-t", s"ec2-user@${hostName}", "bash", "-c", s"'[ -e ${hostPath} ] || ( mkdir -p ${parentPath(hostPath)}; cat > ${hostPath}; chmod 600 ${hostPath} )'"))
     }
-  }.handleErrorWith { _ =>
-    printStr(".") >>
-      sleep(delay) >>
-      copyFileToHost(path, hostName, hostPath)
-  }
 
-  def rsyncToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]): IO[_] = {
-    checkHostPort(hostName, 22) >> {
-      implicit val processContext = ProcessContext(inheritIO = true)
-      runProcessAndWait(List("ssh", s"ec2-user@$hostName", "mkdir", "-p", hostPath)) >>
-        runProcessAndWait(List("rsync", "-av", path, s"ec2-user@$hostName:$hostPath"))
+  def rsyncToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) =
+    retryForHost(hostName) {
+      runOnEc2Host("ssh", s"ec2-user@$hostName", "mkdir", "-p", hostPath) >>
+        runProcessWithTerminal("rsync", "-av", path, s"ec2-user@$hostName:$hostPath")
     }
-  }.handleErrorWith { _ =>
-    printStr(".") >>
-      sleep(delay) >>
-      rsyncToHost(path, hostName, hostPath)
-  }
 
+  def runOnEc2Host(hostName: String, args: String*)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) =
+    runProcessWithTerminal(List("ssh", "-t", s"ec2-user@${hostName}") ++ args.toList)
+  
 }
