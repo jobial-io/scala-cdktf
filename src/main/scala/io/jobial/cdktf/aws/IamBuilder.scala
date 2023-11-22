@@ -83,19 +83,17 @@ trait IamBuilder extends TerraformStackBuilderCore {
       "Statement" -> statements
     )
 
-  val DefaultAssumeRolePolicy = policy("ecs-tasks.amazonaws.com", "sts:AssumeRole")
+  val DefaultEcsAssumeRolePolicy = policy("ecs-tasks.amazonaws.com", "sts:AssumeRole")
 
-  val DefaultPolicy = inlinePolicy(
-    policy(
-      List(
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "logs:DescribeLogStreams"
-      ),
-      List(
-        "arn:aws:logs:*:*:*"
-      )
+  val DefaultLogPolicy = policy(
+    List(
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:DescribeLogStreams"
+    ),
+    List(
+      "arn:aws:logs:*:*:*"
     )
   )
 
@@ -118,5 +116,8 @@ trait IamBuilder extends TerraformStackBuilderCore {
       "ssmmessages:OpenDataChannel"
     )
   )
+
+  val DefaultLambdaAssumeRolePolicy = policy("lambda.amazonaws.com", "sts:AssumeRole")
+
 
 }

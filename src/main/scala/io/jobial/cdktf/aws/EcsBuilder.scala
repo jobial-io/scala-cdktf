@@ -124,7 +124,7 @@ trait EcsBuilder extends IamBuilder {
   def addEcsTaskExecutionRole[D](
     name: String,
     managedPolicyArns: List[String] = List("arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"),
-    assumeRolePolicy: Json = DefaultAssumeRolePolicy
+    assumeRolePolicy: Json = DefaultEcsAssumeRolePolicy
   ) = addRole[D](
     s"$name-task-execution",
     managedPolicyArns = managedPolicyArns,
@@ -134,7 +134,7 @@ trait EcsBuilder extends IamBuilder {
   def addEcsTaskRole[D](
     name: String,
     managedPolicyArns: List[String],
-    assumeRolePolicy: Json = DefaultAssumeRolePolicy
+    assumeRolePolicy: Json = DefaultEcsAssumeRolePolicy
   ) = addRole[D](
     s"$name-task",
     assumeRolePolicy = Some(assumeRolePolicy),
