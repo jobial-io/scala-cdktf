@@ -53,7 +53,7 @@ lazy val CirceVersion = "0.12.0-M3"
 lazy val LogbackVersion = "1.2.3"
 lazy val ShapelessVersion = "2.3.3"
 lazy val ProguardVersion = "7.2.2"
-lazy val ScaseVersion = "1.3.20"
+lazy val ScaseVersion = "1.3.37"
 
 lazy val root: Project = project
   .in(file("."))
