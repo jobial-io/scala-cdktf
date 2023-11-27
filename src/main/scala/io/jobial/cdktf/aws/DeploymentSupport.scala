@@ -40,18 +40,18 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
   }
 
   def copyFileToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) =
-    retryForHost(hostName) {
+    retryForHost(hostName, delay = delay) {
       implicit val processContext = ProcessContext(inputFilename = Some(expandHome(path)), inheritIO = false)
-      runProcessAndWait(List("ssh", "-t", s"ec2-user@${hostName}", "bash", "-c", s"'[ -e ${hostPath} ] || ( mkdir -p ${parentPath(hostPath)}; cat > ${hostPath}; chmod 600 ${hostPath} )'"))
+      runProcessAndWait(List("ssh", "-t", "-o", "StrictHostKeyChecking=no", s"ec2-user@${hostName}", "bash", "-c", s"'[ -e ${hostPath} ] || ( mkdir -p ${parentPath(hostPath)}; cat > ${hostPath}; chmod 600 ${hostPath} )'"))
     }
 
-  def rsyncToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) =
-    retryForHost(hostName) {
-      runOnEc2Host("ssh", s"ec2-user@$hostName", "mkdir", "-p", hostPath) >>
-        runProcessWithTerminal("rsync", "-av", path, s"ec2-user@$hostName:$hostPath")
+  def rsyncToHost(path: String, hostName: String, hostPath: String, options: List[String] = List(), delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) =
+    retryForHost(hostName, delay = delay) {
+      runOnEc2Host(hostName, "mkdir", "-p", hostPath) >>
+        runProcessWithTerminal(List("rsync", "-av") ++ options ++ List(path, s"ec2-user@$hostName:$hostPath"))
     }
 
   def runOnEc2Host(hostName: String, args: String*)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) =
-    runProcessWithTerminal(List("ssh", "-t", s"ec2-user@${hostName}") ++ args.toList)
-  
+    runProcessWithTerminal(List("ssh", "-t", "-o", "StrictHostKeyChecking=no", s"ec2-user@${hostName}") ++ args.toList)
+
 }
