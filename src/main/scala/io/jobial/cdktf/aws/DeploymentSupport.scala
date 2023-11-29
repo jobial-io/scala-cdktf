@@ -31,13 +31,15 @@ trait DeploymentSupport extends CatsUtils[IO] with ProcessManagement[IO] {
     runProcessAndWait(List("nc", "-zv", hostName, port.toString))
   }
 
-  def retryForHost[T](hostName: String, port: Int = 22, delay: FiniteDuration = 2.seconds)(f: IO[T])(implicit concurrent: Concurrent[IO], timer: Timer[IO]): IO[T] = {
-    checkHostPort(hostName, port) >> f
-  }.handleErrorWith { _ =>
-    printStr(".") >>
-      sleep(delay) >>
-      retryForHost(hostName, port, delay)(f)
-  }
+  def retry[T](delay: FiniteDuration = 2.seconds)(f: IO[T])(implicit concurrent: Concurrent[IO], timer: Timer[IO]): IO[T] =
+    f.handleErrorWith { _ =>
+      printStr(".") >>
+        sleep(delay) >>
+        retry(delay)(f)
+    }
+
+  def retryForHost[T](hostName: String, port: Int = 22, delay: FiniteDuration = 2.seconds)(f: IO[T])(implicit concurrent: Concurrent[IO], timer: Timer[IO]): IO[T] =
+    retry(delay)(checkHostPort(hostName, port) >> f)
 
   def copyFileToHost(path: String, hostName: String, hostPath: String, delay: FiniteDuration = 2.seconds)(implicit processContext: ProcessContext, concurrent: Concurrent[IO], timer: Timer[IO]) =
     retryForHost(hostName, delay = delay) {
