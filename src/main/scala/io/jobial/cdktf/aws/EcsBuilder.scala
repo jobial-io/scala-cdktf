@@ -5,6 +5,7 @@ import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsCluster
 import com.hashicorp.cdktf.providers.aws.ecs_cluster.EcsClusterConfiguration
 import com.hashicorp.cdktf.providers.aws.ecs_cluster_capacity_providers.EcsClusterCapacityProviders
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsService
+import com.hashicorp.cdktf.providers.aws.ecs_service.EcsServiceCapacityProviderStrategy
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsServiceNetworkConfiguration
 import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinition
 import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinitionVolume
@@ -34,7 +35,7 @@ trait EcsBuilder extends IamBuilder {
 
   def addCluster[D](
     name: String,
-    capacityProviders: List[String] = List("FARGATE"),
+    capacityProviders: List[String] = List("FARGATE", "FARGATE_SPOT"),
     tags: Map[String, String] = Map()
   ): TerraformStackBuildState[D, EcsCluster] =
     for {
@@ -45,7 +46,7 @@ trait EcsBuilder extends IamBuilder {
   def addClusterCapacityProviders[D](
     name: String,
     clusterName: String,
-    capacityProviders: List[String] = List("FARGATE")
+    capacityProviders: List[String] = List("FARGATE", "FARGATE_SPOT")
   ) = buildAndAddResource[D, EcsClusterCapacityProviders] { context =>
     EcsClusterCapacityProviders.Builder
       .create(context.stack, s"$name-ecs-cluster-capacity-providers")
@@ -97,6 +98,8 @@ trait EcsBuilder extends IamBuilder {
     networkConfiguration: EcsServiceNetworkConfiguration,
     forceNewDeployment: Boolean = false,
     enableExecuteCommand: Boolean = true,
+    launchType: String = "FARGATE",
+    capacityProviderStrategy: List[EcsServiceCapacityProviderStrategy] = List(),
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, EcsService] { context =>
     EcsService.Builder
@@ -104,13 +107,21 @@ trait EcsBuilder extends IamBuilder {
       .name(name)
       .enableExecuteCommand(enableExecuteCommand)
       .taskDefinition(taskDefinition.getId)
-      .launchType("FARGATE")
+      .launchType(launchType)
       .cluster(cluster.getId)
       .desiredCount(1)
       .networkConfiguration(networkConfiguration)
       .forceNewDeployment(forceNewDeployment)
+      .capacityProviderStrategy(capacityProviderStrategy.asJava)
       .tags((context.tags ++ tags).asJava)
   }
+  
+  def ecsServiceCapacityProviderStrategy(capacityProvider: String, weight: Int, base: Int = 0) =
+    EcsServiceCapacityProviderStrategy.builder()
+      .capacityProvider(capacityProvider)
+      .weight(weight)
+      .base(base)
+      .build
 
   def addNetworkConfiguration[D](
     securityGroups: List[String],
