@@ -98,22 +98,23 @@ trait EcsBuilder extends IamBuilder {
     networkConfiguration: EcsServiceNetworkConfiguration,
     forceNewDeployment: Boolean = false,
     enableExecuteCommand: Boolean = true,
-    launchType: String = "FARGATE",
+    launchType: Option[String] = Some("FARGATE"),
     capacityProviderStrategy: List[EcsServiceCapacityProviderStrategy] = List(),
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, EcsService] { context =>
-    EcsService.Builder
+    val b = EcsService.Builder
       .create(context.stack, s"$name-ecs-service")
       .name(name)
       .enableExecuteCommand(enableExecuteCommand)
       .taskDefinition(taskDefinition.getId)
-      .launchType(launchType)
       .cluster(cluster.getId)
       .desiredCount(1)
       .networkConfiguration(networkConfiguration)
       .forceNewDeployment(forceNewDeployment)
       .capacityProviderStrategy(capacityProviderStrategy.asJava)
       .tags((context.tags ++ tags).asJava)
+    if (capacityProviderStrategy.isEmpty) launchType.map(b.launchType)
+    b
   }
   
   def ecsServiceCapacityProviderStrategy(capacityProvider: String, weight: Int, base: Int = 0) =
