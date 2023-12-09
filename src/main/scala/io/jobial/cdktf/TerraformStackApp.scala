@@ -17,7 +17,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           runRedeploy(stack),
           runPlan(stack)
         )
-      } yield subcommands orElse runStack(stack)
+      } yield subcommands
     }
 
   def runStack(stack: IO[TerraformStackBuildContext[D]]) =
