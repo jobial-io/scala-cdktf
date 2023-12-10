@@ -28,8 +28,8 @@ trait RdsBuilder extends IamBuilder {
     engine: String,
     engineMode: Option[String],
     availabilityZones: List[String],
-    masterUsername: String,
-    masterPassword: String,
+    masterUsername: Option[String],
+    masterPassword: Option[String],
     subnetGroup: DbSubnetGroup,
     clusterParameterGroup: RdsClusterParameterGroup,
     scalingConfiguration: Option[RdsClusterScalingConfiguration] = None,
@@ -39,6 +39,7 @@ trait RdsBuilder extends IamBuilder {
     databaseName: Option[String] = None,
     backupRetentionPeriod: Int = 5,
     preferredBackupWindow: String = "04:00-06:00",
+    snapshotIdentifier: Option[String] = None,
     tags: Map[String, String] = Map()
   ) = buildAndAddResource[D, RdsCluster]{ context =>
     val b = RdsCluster.Builder
@@ -47,8 +48,6 @@ trait RdsBuilder extends IamBuilder {
       .engine(engine)
       .availabilityZones(availabilityZones.asJava)
       .databaseName(databaseName.getOrElse(name.replace('-', '_')))
-      .masterUsername(masterUsername)
-      .masterPassword(masterPassword)
       .backupRetentionPeriod(backupRetentionPeriod)
       .preferredBackupWindow(preferredBackupWindow)
       .skipFinalSnapshot(skipFinalSnapshot)
@@ -59,6 +58,9 @@ trait RdsBuilder extends IamBuilder {
     engineMode.map(b.engineMode)
     scalingConfiguration.map(b.scalingConfiguration)
     serverlessv2ScalingConfiguration.map(b.serverlessv2ScalingConfiguration)
+    snapshotIdentifier.map(b.snapshotIdentifier)
+    masterUsername.map(b.masterUsername)
+    masterPassword.map(b.masterPassword)
     b
   }
   
