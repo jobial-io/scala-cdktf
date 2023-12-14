@@ -13,9 +13,9 @@
 name := "scala-cdktf"
 
 ThisBuild / organization := "io.jobial"
-ThisBuild / scalaVersion := "2.11.12"
-ThisBuild / crossScalaVersions := Seq("2.11.12", "2.12.15", "2.13.8")
-ThisBuild / version := "0.8.23"
+ThisBuild / scalaVersion := "2.13.8"
+ThisBuild / crossScalaVersions := Seq("2.12.15", "2.13.8")
+ThisBuild / version := "0.9.0"
 ThisBuild / scalacOptions += "-target:jvm-1.8"
 ThisBuild / javacOptions ++= Seq("-source", "11", "-target", "11")
 ThisBuild / Test / packageBin / publishArtifact := true
@@ -41,19 +41,21 @@ lazy val commonSettings = Seq(
   scalacOptions ++= (if (scalaBinaryVersion.value != "2.13") Seq("-Ypartial-unification") else Seq())
 )
 
-lazy val CatsVersion = "2.0.0"
-lazy val CatsTestkitScalatestVersion = "1.0.0-RC1"
+lazy val CatsVersion = "2.6.1"
+lazy val CatsEffectVersion = "2.5.3"
+lazy val CatsTestkitScalatestVersion = "2.1.5"
+lazy val KittensVersion = "2.3.2"
 lazy val ScalaLoggingVersion = "3.9.2"
 lazy val ScalatestVersion = "3.2.3"
 lazy val SourcecodeVersion = "0.2.3"
 lazy val CdktfProviderAwsVersion = "16.0.5"
-lazy val SclapVersion = "1.3.11"
-lazy val SprintVersion = "0.1.2"
-lazy val CirceVersion = "0.12.0-M3"
+lazy val SclapVersion = "1.5.1"
+lazy val SprintVersion = "0.3.0"
+lazy val CirceVersion = "0.14.1"
 lazy val LogbackVersion = "1.2.3"
 lazy val ShapelessVersion = "2.3.3"
 lazy val ProguardVersion = "7.2.2"
-lazy val ScaseVersion = "1.3.41"
+lazy val ScaseVersion = "1.4.0"
 
 lazy val root: Project = project
   .in(file("."))
@@ -61,9 +63,9 @@ lazy val root: Project = project
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-core" % CatsVersion,
-      "org.typelevel" %% "cats-effect" % CatsVersion,
+      "org.typelevel" %% "cats-effect" % CatsEffectVersion,
       "org.typelevel" %% "cats-testkit-scalatest" % CatsTestkitScalatestVersion % Test,
-      "org.typelevel" %% "kittens" % CatsVersion % Test,
+      "org.typelevel" %% "kittens" % KittensVersion % Test,
       "com.typesafe.scala-logging" %% "scala-logging" % ScalaLoggingVersion,
       "com.lihaoyi" %% "sourcecode" % SourcecodeVersion,
       "org.scalatest" %% "scalatest" % ScalatestVersion % Test,
