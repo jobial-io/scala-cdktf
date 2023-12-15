@@ -244,7 +244,7 @@ podman container checkpoint ${name} -e /root/${name}.tar.gz && {
 }
 """) >>
       addBashScript(s"/usr/local/bin/podman_restore_${name}", s"""
-status=$$(podman inspect --format="{{.State.Status}}" ${name})
+status=\\$$(podman inspect --format="{{.State.Status}}" ${name})
 [ "\\$$status" == running ] || ( podman container restore -i /root/${name}.tar.gz && echo successful restore ) || ( podman start ${name} && echo restore unsuccessful, starting container )
 """
       ) >>
