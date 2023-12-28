@@ -15,7 +15,7 @@ name := "scala-cdktf"
 ThisBuild / organization := "io.jobial"
 ThisBuild / scalaVersion := "2.13.8"
 ThisBuild / crossScalaVersions := Seq("2.12.15", "2.13.8")
-ThisBuild / version := "0.9.3"
+ThisBuild / version := "0.9.4"
 ThisBuild / scalacOptions += "-target:jvm-1.8"
 ThisBuild / javacOptions ++= Seq("-source", "11", "-target", "11")
 ThisBuild / Test / packageBin / publishArtifact := true
@@ -50,11 +50,11 @@ lazy val ScalatestVersion = "3.2.3"
 lazy val SourcecodeVersion = "0.2.3"
 lazy val CdktfProviderAwsVersion = "16.0.5"
 lazy val SclapVersion = "1.5.1"
-lazy val SprintVersion = "0.3.1"
+lazy val SprintVersion = "0.3.2"
 lazy val CirceVersion = "0.14.1"
 lazy val LogbackVersion = "1.2.3"
 lazy val ProguardVersion = "7.2.2"
-lazy val ScaseVersion = "1.4.2"
+lazy val ScaseVersion = "1.4.3"
 
 lazy val root: Project = project
   .in(file("."))
