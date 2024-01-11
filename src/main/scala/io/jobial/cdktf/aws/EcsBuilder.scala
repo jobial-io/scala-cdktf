@@ -12,6 +12,7 @@ import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinitionVo
 import com.hashicorp.cdktf.providers.aws.iam_role.IamRole
 import io.circe.Json
 import io.circe.generic.auto._
+import io.circe.generic.extras.semiauto.deriveEnumerationCodec
 import io.circe.generic.extras.semiauto.deriveEnumerationEncoder
 import io.circe.syntax._
 import io.jobial.cdktf.util.json._
@@ -19,7 +20,7 @@ import io.jobial.cdktf.util.json._
 import scala.collection.JavaConverters._
 
 trait EcsBuilder extends IamBuilder {
-
+  
   def addCluster[D](
     name: String,
     configuration: Option[EcsClusterConfiguration],
@@ -64,6 +65,10 @@ trait EcsBuilder extends IamBuilder {
     new EcsTaskDefinitionVolume.Builder()
       .name(name)
       .build()
+
+  // TODO: somehow this cannot be derived anymore automatically by Circe - it turnes it into an object. 
+  //  Check if io.circe.generic.extras.Configuration can override it
+  implicit val containerDependencyConditionEncoding = deriveEnumerationCodec[ContainerDependencyCondition]
 
   def addTaskDefinition[D](
     name: String,
