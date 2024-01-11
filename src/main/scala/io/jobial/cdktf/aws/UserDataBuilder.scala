@@ -156,6 +156,9 @@ update_alias_record $hostedZone $name.$hostedZone "$description"
   def yumInstall(packages: String*) =
     yum(List("install", "-y") ++ packages: _*)
 
+  def addCrontab(cronLines: List[(String, UserData)], moreCronLines: (String, UserData)*): UserData =
+    addCrontab(cronLines ++ moreCronLines)
+
   def addCrontab(cronLines: List[(String, UserData)]): UserData =
     addFile("/tmp/crontab",
       addUserDataLines("PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin") >>
