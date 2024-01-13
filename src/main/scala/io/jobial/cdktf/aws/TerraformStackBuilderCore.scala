@@ -138,6 +138,14 @@ trait TerraformStackBuilderCore extends CdktfSupport {
       r <- State.modify[TerraformStackBuildContext[D]](_.updateData(f(data)))
     } yield r
 
+  def normalizedClassName[C <: MainClass](app: C): String =
+    normalizedClassName(app.getClass.getName)
+
+  def normalizedClassName(name: String): String =
+    name.replaceAll("\\$$", "")
+
+  type MainClass = {def main(args: Array[String])}
+
   //
   //  def addMyResource[D](
   //    name: String
