@@ -20,7 +20,10 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
         )
       } yield for {
         continue <- beforeSubcommands(args, stack)
-        r <- whenA(continue)(subcommands)
+        r <- if (continue)
+          subcommands
+        else
+          unit
       } yield r
     }
 

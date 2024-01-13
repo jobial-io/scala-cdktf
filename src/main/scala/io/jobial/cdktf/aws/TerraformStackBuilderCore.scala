@@ -142,7 +142,10 @@ trait TerraformStackBuilderCore extends CdktfSupport {
     normalizedClassName(app.getClass)
 
   def normalizedClassName(app: Class[_]): String =
-    app.getName.replaceAll("\\$$", "")
+    normalizedClassName(app.getName)
+
+  def normalizedClassName(className: String): String =
+    className.replaceAll("\\$$", "")
 
   type MainClass = {def main(args: Array[String])}
 
