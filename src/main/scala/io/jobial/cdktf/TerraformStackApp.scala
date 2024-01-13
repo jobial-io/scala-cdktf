@@ -17,7 +17,10 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           runRedeploy(stack),
           runPlan(stack)
         )
-      } yield subcommands
+      } yield for {
+        continue <- beforeSubcommands
+        r <- whenA(continue)(subcommands)
+      } yield r
     }
 
   def runStack(stack: IO[TerraformStackBuildContext[D]]) =
@@ -76,6 +79,8 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           .guarantee(afterDeploy(stack))
       }
     } yield r
+
+  def beforeSubcommands = pure(true)
 
   def beforeDeploy(context: TerraformStackBuildContext[D]) = unit
 
