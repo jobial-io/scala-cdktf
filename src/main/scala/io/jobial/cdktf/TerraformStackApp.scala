@@ -11,6 +11,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
   def run(stack: IO[TerraformStackBuildContext[D]]) =
     command.printStackTraceOnException(true) {
       for {
+        args <- args
         subcommands <- subcommands(
           runDeploy(stack),
           runDestroy(stack),
@@ -18,7 +19,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           runPlan(stack)
         )
       } yield for {
-        continue <- beforeSubcommands
+        continue <- beforeSubcommands(args, stack)
         r <- whenA(continue)(subcommands)
       } yield r
     }
@@ -80,7 +81,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       }
     } yield r
 
-  def beforeSubcommands = pure(true)
+  def beforeSubcommands(args: List[String], context: IO[TerraformStackBuildContext[D]]) = pure(true)
 
   def beforeDeploy(context: TerraformStackBuildContext[D]) = unit
 
