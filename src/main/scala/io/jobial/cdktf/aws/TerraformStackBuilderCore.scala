@@ -138,27 +138,4 @@ trait TerraformStackBuilderCore extends CdktfSupport {
       r <- State.modify[TerraformStackBuildContext[D]](_.updateData(f(data)))
     } yield r
 
-  def normalizedClassName[C <: MainClass](app: C): String =
-    normalizedClassName(app.getClass)
-
-  def normalizedClassName(app: Class[_]): String =
-    normalizedClassName(app.getName)
-
-  def normalizedClassName(className: String): String =
-    className.replaceAll("\\$$", "")
-
-  type MainClass = {def main(args: Array[String])}
-
-  //
-  //  def addMyResource[D](
-  //    name: String
-  //  ): TerraformStackBuildState[D, MyResource] =
-  //    State.inspect { context =>
-  //      new MyResource(context.stack)
-  //    }
-
 }
-
-//class MyResource(scope: Construct) extends TerraformResource(software.amazon.jsii.JsiiObject.InitializationMode.JSII) {
-//  software.amazon.jsii.JsiiEngine.getInstance.createNewObject(this, Array[AnyRef](java.util.Objects.requireNonNull(scope, "scope is required"), java.util.Objects.requireNonNull("hello", "id is required"), java.util.Objects.requireNonNull("", "config is required")))
-//}
