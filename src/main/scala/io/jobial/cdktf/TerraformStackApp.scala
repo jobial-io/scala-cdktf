@@ -19,7 +19,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
           runPlan(stack)
         )
       } yield for {
-        continue <- beforeSubcommands(args, stack)
+        continue <- beforeSubcommands(stack, args)
         r <- if (continue)
           subcommands
         else
@@ -84,7 +84,7 @@ trait TerraformStackApp[D] extends CommandLineApp with ProcessManagement[IO] {
       }
     } yield r
 
-  def beforeSubcommands(args: List[String], context: IO[TerraformStackBuildContext[D]]) = pure(true)
+  def beforeSubcommands(context: IO[TerraformStackBuildContext[D]], args: List[String]) = pure(true)
 
   def beforeDeploy(context: TerraformStackBuildContext[D]) = unit
 
