@@ -8,6 +8,7 @@ import com.hashicorp.cdktf.providers.aws.ecs_service.EcsService
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsServiceCapacityProviderStrategy
 import com.hashicorp.cdktf.providers.aws.ecs_service.EcsServiceNetworkConfiguration
 import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinition
+import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinitionEphemeralStorage
 import com.hashicorp.cdktf.providers.aws.ecs_task_definition.EcsTaskDefinitionVolume
 import com.hashicorp.cdktf.providers.aws.iam_role.IamRole
 import io.circe.Json
@@ -20,7 +21,7 @@ import io.jobial.cdktf.util.json._
 import scala.collection.JavaConverters._
 
 trait EcsBuilder extends IamBuilder {
-  
+
   def addCluster[D](
     name: String,
     configuration: Option[EcsClusterConfiguration],
@@ -78,11 +79,13 @@ trait EcsBuilder extends IamBuilder {
     volume: List[EcsTaskDefinitionVolume] = List(),
     cpu: Int = 1024,
     memory: Int = 2048,
+    ephemeralStorage: Option[Int] = None,
     tags: Map[String, String] = Map(),
     awslogsStreamPrefixOverride: Option[String] = None
   ) = buildAndAddResource[D, EcsTaskDefinition] { context =>
     val definitionsWithDependencies = context.containerDefinitionsWithTransitiveDependencies(containerDefinitions)
-    EcsTaskDefinition.Builder
+
+    val b = EcsTaskDefinition.Builder
       .create(context.stack, s"$name-ecs-task-definition")
       .family(name)
       .containerDefinitions(awslogsStreamPrefixOverride.map(prefix => definitionsWithDependencies.map(_.setAwslogsStreamPrefix(prefix))).getOrElse(definitionsWithDependencies).map(_.asJson).noSpaces)
@@ -94,6 +97,16 @@ trait EcsBuilder extends IamBuilder {
       .cpu(cpu.toString)
       .memory(memory.toString)
       .tags((context.tags ++ tags).asJava)
+
+    ephemeralStorage.map(ephemeralStorage =>
+      b.ephemeralStorage(
+        EcsTaskDefinitionEphemeralStorage
+          .builder
+          .sizeInGib(ephemeralStorage)
+          .build
+      )
+    )
+    b
   }
 
   def addService[D](
@@ -121,7 +134,7 @@ trait EcsBuilder extends IamBuilder {
     if (capacityProviderStrategy.isEmpty) launchType.map(b.launchType)
     b
   }
-  
+
   def ecsServiceCapacityProviderStrategy(capacityProvider: String, weight: Int, base: Int = 0) =
     EcsServiceCapacityProviderStrategy.builder()
       .capacityProvider(capacityProvider)
@@ -157,7 +170,7 @@ trait EcsBuilder extends IamBuilder {
     assumeRolePolicy = Some(assumeRolePolicy),
     managedPolicyArns = managedPolicyArns
   )
-  
+
   implicit val containerDependencyConditionEncoder = deriveEnumerationEncoder[ContainerDependencyCondition]
 
   def logConfiguration(
@@ -174,7 +187,7 @@ trait EcsBuilder extends IamBuilder {
         if (awslogsCreateGroup) Some("true") else None
       )
     )
-  
+
 }
 
 sealed trait ContainerDependencyCondition
