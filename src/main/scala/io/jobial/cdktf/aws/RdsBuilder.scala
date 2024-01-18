@@ -22,7 +22,7 @@ trait RdsBuilder extends IamBuilder {
         .create(context.stack, s"$name-db-subnet-group")
         .subnetIds(subnetIds.asJava)
     }
-  
+
   def addRdsCluster[D](
     name: String,
     engine: String,
@@ -41,7 +41,7 @@ trait RdsBuilder extends IamBuilder {
     preferredBackupWindow: String = "04:00-06:00",
     snapshotIdentifier: Option[String] = None,
     tags: Map[String, String] = Map()
-  ) = buildAndAddResource[D, RdsCluster]{ context =>
+  ) = buildAndAddResource[D, RdsCluster] { context =>
     val b = RdsCluster.Builder
       .create(context.stack, s"$name-rds-cluster")
       .clusterIdentifier(name)
@@ -63,7 +63,7 @@ trait RdsBuilder extends IamBuilder {
     masterPassword.map(b.masterPassword)
     b
   }
-  
+
   def rdsClusterScalingConfiguration(
     minCapacity: Double,
     maxCapacity: Double,
@@ -89,27 +89,33 @@ trait RdsBuilder extends IamBuilder {
       .build
 
   def addRdsClusterParameterGroup[D](
-    name: String
+    name: String,
+    family: String = "aurora-postgresql15",
+    parameters: List[RdsClusterParameterGroupParameter] = List(
+      RdsClusterParameterGroupParameter
+        .builder
+        .name("rds.babelfish_status")
+        .value("on")
+        .applyMethod("pending-reboot")
+        .build,
+      RdsClusterParameterGroupParameter
+        .builder
+        .name("babelfishpg_tds.tds_ssl_encrypt")
+        .value("1")
+        .build,
+      RdsClusterParameterGroupParameter
+        .builder
+        .name("babelfishpg_tsql.migration_mode")
+        .value("multi-db")
+        .applyMethod("pending-reboot")
+        .build
+    )
   ) =
     buildAndAddResource[D, RdsClusterParameterGroup] { context =>
       RdsClusterParameterGroup.Builder
         .create(context.stack, s"$name-rds-cluster-parameter-group")
-        .family("aurora-postgresql15")
-        .parameter(
-          List(
-            RdsClusterParameterGroupParameter
-              .builder
-              .name("rds.babelfish_status")
-              .value("on")
-              .applyMethod("pending-reboot")
-              .build,
-            RdsClusterParameterGroupParameter
-              .builder
-              .name("babelfishpg_tds.tds_ssl_encrypt")
-              .value("1")
-              .build
-          ).asJava
-        )
+        .family(family)
+        .parameter(parameters.asJava)
     }
 
   def addRdsClusterInstance[D](
