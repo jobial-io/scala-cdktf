@@ -1,6 +1,5 @@
 package io.jobial.cdktf.aws
 
-import com.hashicorp.cdktf.providers.aws.db_instance.DbInstance
 import com.hashicorp.cdktf.providers.aws.db_subnet_group.DbSubnetGroup
 import com.hashicorp.cdktf.providers.aws.rds_cluster.RdsCluster
 import com.hashicorp.cdktf.providers.aws.rds_cluster.RdsClusterScalingConfiguration
@@ -122,7 +121,8 @@ trait RdsBuilder extends IamBuilder {
     name: String,
     cluster: RdsCluster,
     instanceClass: String,
-    publiclyAccessible: Boolean = false
+    publiclyAccessible: Boolean = false,
+    tags: Map[String, String] = Map()
   ) =
     buildAndAddResource[D, RdsClusterInstance] { context =>
       RdsClusterInstance.Builder
@@ -133,5 +133,6 @@ trait RdsBuilder extends IamBuilder {
         .engineVersion(cluster.getEngineVersion)
         .instanceClass(instanceClass)
         .publiclyAccessible(publiclyAccessible)
+        .tags(context.mergeTags(name, tags).asJava)
     }
 }
