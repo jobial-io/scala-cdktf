@@ -210,7 +210,8 @@ case class ContainerDefinition(
   logConfiguration: LogConfiguration = LogConfiguration(),
   mountPoints: List[MountPoint] = List(),
   cpu: Option[Int] = None,
-  memory: Option[Int] = None
+  memory: Option[Int] = None,
+  stopTimeout: Option[Int] = None
 ) {
 
   def setAwslogsStreamPrefix(prefix: String) = copy(
